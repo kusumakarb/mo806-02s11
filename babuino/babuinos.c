@@ -2,10 +2,12 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include "desenho.h"
 
 #define THREAD_NUM 100
 #define CHANCE_DIR 0.5
 #define MAX_CORDA 5
+#define MAX_DIFF 10
 
 #define DIR 0
 #define ESQ 1
@@ -18,6 +20,9 @@
 
 #define ANIMACAO(X) sem_wait(&animacao); X sem_post(&animacao);
 
+#define POST_V(S,X)  while (X--) sem_post(S);
+
+#define MIN(A,B,C) if (A<B) C = A; else C = B;
 
 sem_t esquerda;
 sem_t direita;
@@ -26,6 +31,9 @@ sem_t animacao;
 
 volatile int estado_corda;
 volatile int nro_corda;
+volatile int balanco;
+volatile int esperando_dir;
+volatile int esperando_esq;
 
 int entra_corda(int s)
 {
@@ -79,7 +87,20 @@ int entra_corda(int s)
 
    // if I can go on, let's let everyone know
    if (pode_seguir)
+   {
       nro_corda++;
+
+      if (s == DIR)
+      {
+         balanco++;
+         esperando_dir--;
+      }
+      else
+      {
+         balanco--;
+         esperando_esq--;
+      }
+   }
 
    sem_post(&corda);
 
@@ -88,35 +109,78 @@ int entra_corda(int s)
 
 void sai_corda(int s)
 {
-   int i;
+   int p;
 
    sem_wait(&corda);
 
    nro_corda--;
 
+   // Am I the last one?
    if (nro_corda == 0)
-   {     
-/*
-      sem_getvalue(&esquerda, &i);
+   {   
+      ANIMACAO(printf("Ultimo\nEsp_dir: %d\nEsp_esq: %d\nBalanco: %d\n", esperando_dir, esperando_esq, balanco);)
 
-      if (i < MAX_CORDA
-*/
+      // if right side has used the rope too much and there're babuines on the left side waiting...
+      if (balanco > MAX_DIFF && esperando_esq > 0)
+      {
+         // let left side play
+         estado_corda = ESQ_ST;
+         MIN(esperando_esq, MAX_CORDA, p);
+         POST_V(&esquerda, p);
+      }
+      // if left side has used the rope too much and there're babuines on the right side waiting...
+      else if (balanco < -MAX_DIFF && esperando_dir > 0)
+      {
+         // let right side play
+         estado_corda = DIR_ST;
+         MIN(esperando_dir, MAX_CORDA, p);
+         POST_V(&direita, p);
+      }
+      else
+      {
+         // let anyone waiting play
+         if (esperando_dir > 0)
+         {
+            // right
+            estado_corda = DIR_ST;
+            MIN(esperando_dir, MAX_CORDA, p);
+            POST_V(&direita, p);
+         }
+         else if (esperando_esq > 0)
+         {
+            // left
+            estado_corda = ESQ_ST;
+            MIN(esperando_esq, MAX_CORDA, p);
+            POST_V(&esquerda, p);
+         }
+         else
+         {
+            // I'm the last one! It's my moral duty to free the rope
+            estado_corda = LIVRE_ST;
+            
+            sem_post(&esquerda);
+            sem_post(&direita);
 
-      ANIMACAO(printf("Ultimo: liberando corda\n");)
-
-      // I'm the last one! It's my moral duty to free the rope
-      estado_corda = LIVRE_ST;
-
-      sem_post(&esquerda);
-      sem_post(&direita);
+            ANIMACAO(printf("Ultimo: liberando corda\n");)
+         }
+      }
    }
-
+   else
+   {
+      // I'm not the last, just let one more in
+      if (s == DIR)
+         sem_post(&direita);
+      else
+         sem_post(&esquerda);
+   }
 
    sem_post(&corda);
 }
 
 void print(int s)
 {
+   sem_wait(&corda);
+
    ANIMACAO
    (
 
@@ -133,6 +197,8 @@ void print(int s)
             printf("babuino esquerda\n");
 
     )
+
+    sem_post(&corda);
 }
 
 void* babuino(void* sen)
@@ -150,6 +216,13 @@ void* babuino(void* sen)
    else
       sem = &direita;
 
+   sem_wait(&corda);
+   if (s == DIR)
+      esperando_dir++;
+   else
+      esperando_esq++;
+   sem_post(&corda);   
+
    // I shouldn't overload the rope with my weight
    // wait for my budies to get to the other side
    sem_wait(sem);
@@ -160,7 +233,6 @@ void* babuino(void* sen)
       // well, not this time, I'll wait here
       sem_wait(sem);
    } 
-
 
    // ** yeap, on the rope! **
    print(s);
@@ -177,6 +249,8 @@ int main(int argn, char** argv)
    int s;
    pthread_t t[THREAD_NUM];
 
+   desenho_init();
+
    // set random seed based on current time
    srandom((unsigned int)time(NULL));
 
@@ -189,6 +263,9 @@ int main(int argn, char** argv)
    // set rope state
    estado_corda = LIVRE_ST;
    nro_corda = 0;
+   balanco = 0;
+   esperando_dir = 0;
+   esperando_esq = 0;
 
    // create threads
    for (i = 0; i < THREAD_NUM; i++)
@@ -207,6 +284,8 @@ int main(int argn, char** argv)
    sem_destroy(&esquerda);
    sem_destroy(&direita);
    sem_destroy(&corda);
+
+   desenho_destroy();
 
    return 0;
 }
