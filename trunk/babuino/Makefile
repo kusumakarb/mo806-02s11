@@ -1,7 +1,7 @@
 all: babuino
 
-babuino: babuinos.c
-	gcc -m64 -O3 -lpthread babuinos.c -o babuinos
+babuino: babuinos.c desenho.c desenho.h
+	gcc -g -m64 -lpthread -lncurses babuinos.c desenho.c -o babuinos
 
 run: babuino
 	./babuinos
