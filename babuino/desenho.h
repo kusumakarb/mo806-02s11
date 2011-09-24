@@ -3,12 +3,21 @@
 
 #include <curses.h>
 #include <string.h>
+#include <semaphore.h>
+#include <stdlib.h>
 
 typedef struct mapa
 {
    int ponte_x, ponte_y, ponte_len;
 } mapa_t;
 
+typedef struct macaco
+{
+   int id;
+   int sentido;
+   int x, y;
+   struct macaco* next;
+} macaco_t;
 
 void desenho_init();
 
