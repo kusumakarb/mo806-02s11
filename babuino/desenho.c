@@ -37,7 +37,7 @@ void desenha_macaco(macaco_t* m)
 {
    char* d;
 
-   if (m->sentido == 1)
+   if (m->sentido == DIREITA)
       d = ">";
    else
       d = "<";
@@ -50,10 +50,16 @@ void desenha_mapa()
    int col, row;
    int i, j;
    mapa_t* m;
-   int distancia_topo = 10;
-   char* ponte = "--------------------------------------------------------";
+   int distancia_topo, altura_placa;
+   char* ponte;
 
    m = &mapa;
+   distancia_topo = 20;
+   altura_placa = 10;
+   ponte = "--------------------------------------------------------";
+
+
+
 
    getmaxyx(stdscr,row,col);
 
@@ -79,10 +85,22 @@ void desenha_mapa()
    for (i = m->ponte_x + m->ponte_len + 1; i < col; i++)
       mvprintw(m->ponte_y, i, "_");
 
-   // macaco
+   // placa
+   m->placa_x = m->ponte_x + m->ponte_len/2;
+   for (i = 0; i < altura_placa - 2; i++)
+         mvprintw(i, m->placa_x - 3, "|         |");
 
-   desenha_macaco_grde(m->ponte_x, 6);
+   mvprintw(altura_placa - 2, m->placa_x - 3, "###########");
+   mvprintw(altura_placa - 1, m->placa_x - 3, "#  LIVRE  #");
+   mvprintw(altura_placa - 0, m->placa_x - 3, "###########");
 
+   // posicao do texto da placa
+   m->placa_x = m->placa_x - 3;
+   m->placa_y = altura_placa - 1;
+
+   // macaco grande
+   desenha_macaco_grde(5, 6);
+   desenha_macaco_grde(col - 17, 6);
 }
 
 void desenho_init()
