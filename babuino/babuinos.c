@@ -267,7 +267,7 @@ void* babuino(void* sen)
    // ** yeap, on the rope! **
    print(s);
 
-   sleep( (int) ( 3.0 * random() / RAND_MAX ) );
+   sleep( (int) ( 6.0 * random() / RAND_MAX ) );
 
    // leaving the rope
    sai_corda(s, id_macaco);

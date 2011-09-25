@@ -264,7 +264,7 @@ void libera_pos(int x, int y, pos_t** pos)
    if ((*pos)->x == x && (*pos)->y == y)
    {
       p = *pos;
-      *pos = NULL;
+      *pos = (*pos)->next;
    }
    else
    {
