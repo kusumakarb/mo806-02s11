@@ -4,6 +4,8 @@
 #include <semaphore.h>
 #include "desenho.h"
 
+//#define DEBUG
+
 #define THREAD_NUM 100
 #define CHANCE_DIR 0.5
 #define MAX_CORDA 5
@@ -18,22 +20,30 @@
 
 #define IS_MY_DIRECTION(X) ( X == DIR && estado_corda == DIR_ST ) || ( X == ESQ && estado_corda == ESQ_ST )
 
+#ifdef DEBUG
 #define ANIMACAO(X) sem_wait(&animacao); X sem_post(&animacao);
+#else
+#define ANIMACAO(X) /**/
+
+#endif
 
 #define POST_V(S,X)  while (X--) sem_post(S);
 
 #define MIN(A,B,C) if (A<B) C = A; else C = B;
 
-sem_t esquerda;
-sem_t direita;
-sem_t corda;
-sem_t animacao;
+static sem_t esquerda;
+static sem_t direita;
+static sem_t corda;
 
-volatile int estado_corda;
-volatile int nro_corda;
-volatile int balanco;
-volatile int esperando_dir;
-volatile int esperando_esq;
+#ifdef DEBUG
+static sem_t animacao;
+#endif
+
+static volatile int estado_corda;
+static volatile int nro_corda;
+static volatile int balanco;
+static volatile int esperando_dir;
+static volatile int esperando_esq;
 
 int entra_corda(int s)
 {
@@ -205,6 +215,7 @@ void* babuino(void* sen)
 {
    // direction
    int s;
+   int id_macaco;
    int entrou_corda;
    sem_t* sem;
 
@@ -217,11 +228,15 @@ void* babuino(void* sen)
       sem = &direita;
 
    sem_wait(&corda);
+
    if (s == DIR)
       esperando_dir++;
    else
       esperando_esq++;
+
    sem_post(&corda);   
+
+   id_macaco = desenho_novo_macaco(s);
 
    // I shouldn't overload the rope with my weight
    // wait for my budies to get to the other side
@@ -258,7 +273,10 @@ int main(int argn, char** argv)
    sem_init(&esquerda, 0, 1);
    sem_init(&direita, 0, 1);
    sem_init(&corda, 0, 1);
+
+#ifdef DEBUG
    sem_init(&animacao, 0, 1);
+#endif
 
    // set rope state
    estado_corda = LIVRE_ST;
