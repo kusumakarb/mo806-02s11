@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include "desenho.h"
 
 //#define DEBUG
 
-#define THREAD_NUM 100
+#define THREAD_NUM 20
 #define CHANCE_DIR 0.5
 #define MAX_CORDA 5
 #define MAX_DIFF 10
