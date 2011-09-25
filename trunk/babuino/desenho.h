@@ -15,7 +15,19 @@ typedef struct mapa
 {
    int ponte_x, ponte_y, ponte_len;
    int placa_x, placa_y;
+
+   // posicoes de inicio e fim do retangulo de espera da esquerda
+   // e da direita
+   int esq_ix, esq_iy, esq_fx;
+   int dir_ix, dir_iy, dir_fx;
 } mapa_t;
+
+typedef struct pos
+{
+   int x;
+   int y;
+   struct pos *next;
+} pos_t;
 
 typedef struct macaco
 {

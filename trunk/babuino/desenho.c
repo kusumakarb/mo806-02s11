@@ -12,6 +12,14 @@ sem_t lock;
 
 volatile macaco_t* macacos;
 
+// posicoes ocupadas em cada local
+volatile pos_t *esquerda;
+volatile pos_t *direita;
+volatile pos_t *corda;
+volatile pos_t *tenta_corda_dir;
+volatile pos_t *tenta_corda_esq;
+
+
 void desenha_macaco_grde(int x, int y)
 {
 /*
@@ -33,7 +41,7 @@ void desenha_macaco_grde(int x, int y)
    mvprintw(y-0, x, " /       \\");
 }
 
-void desenha_macaco(macaco_t* m)
+void move_macaco(macaco_t* m, int x, int y)
 {
    char* d;
 
@@ -42,6 +50,13 @@ void desenha_macaco(macaco_t* m)
    else
       d = "<";
 
+   // apaga posicao anterior
+   mvprintw(m->y, m->x, " ");
+   
+   m->x = x;
+   m->y = y;
+
+   // desenha posicao nova
    mvprintw(m->y, m->x, d);
 }
 
@@ -84,6 +99,15 @@ void desenha_mapa()
    // chao dir
    for (i = m->ponte_x + m->ponte_len + 1; i < col; i++)
       mvprintw(m->ponte_y, i, "_");
+
+   // define limites
+   m->esq_ix = 3;
+   m->esq_iy = m->ponte_y - 3;
+   m->esq_fx = m->ponte_x - 3;
+
+   m->dir_ix = m->ponte_x + m->ponte_len + 3;
+   m->dir_iy = m->ponte_y - 3;
+   m->dir_fx = col - 3;
 
    // placa
    m->placa_x = m->ponte_x + m->ponte_len/2;
@@ -148,6 +172,7 @@ macaco_t* new_macaco(int sentido)
 
    m = (macaco_t*)malloc(sizeof(macaco_t));
    m->sentido = sentido;
+   m->estado = sentido;
    m->next = NULL;
 
    LOCK
@@ -168,6 +193,75 @@ macaco_t* new_macaco(int sentido)
    return m;
 }
 
+void libera_pos(int x, int y, pos_t** pos)
+{
+   pos_t* p, *prev;
+
+   LOCK
+   (
+      if ((*pos)->x == x && (*pos)->y == y)
+      {
+         p = *pos;
+         *pos = NULL;
+      }
+      else
+      {
+         for (p = (*pos)->next, prev = *pos; p != NULL; p = p->next)
+         {
+            if (p->x == x && p->y == y)
+            {
+               prev->next = p->next;
+               break;
+            }
+            
+            prev = p;
+         }
+      }
+   )
+
+   free(p);
+}
+
+void ocupa_pos(int x, int y, pos_t** pos)
+{
+   pos_t* p, *n;
+
+   p = (pos_t*)malloc(sizeof(pos_t));
+   p->x = x;
+   p->y = y;
+   p->next = NULL;
+
+   if (!*pos)
+      *pos = p;
+   else
+      for (n = *pos; n->next != NULL; n = n->next);
+   
+   n->next = p;
+}
+
+pos_t* aloca_pos(pos_t** pos, int ix, int iy, int fx)
+{
+   int x, y;
+   int diff;
+   pos_t* p;
+
+   diff = fx - ix + 1;
+   
+   LOCK
+   (
+      p = *pos;
+      
+      for (x = 0, y = 0; p != NULL && p->x == ix + x && p->y == iy + y; x = (x + 1) % diff)
+      {
+         p = p->next;
+         if (x == diff - 1)
+            y++;
+      }
+      
+      ocupa_pos(ix + x, iy + y, pos);
+   )
+}
+
 macaco_t* get_macaco(int id)
 {
    macaco_t* m;
@@ -183,5 +277,14 @@ macaco_t* get_macaco(int id)
 
 int desenho_novo_macaco(int sentido)
 {
-   new_macaco(sentido);
+   macaco_t* m;
+   pos_t* p;
+   m = new_macaco(sentido);
+
+   if (sentido == ESQUERDA)
+      p = aloca_pos((pos_t**)&esquerda, mapa.esq_ix, mapa.esq_iy, mapa.esq_fx);
+   else
+      p = aloca_pos((pos_t**)&direita, mapa.dir_ix, mapa.dir_iy, mapa.dir_fx);
+
+   move_macaco(m, p->x, p->y);
 }
