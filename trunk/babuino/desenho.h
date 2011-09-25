@@ -6,9 +6,15 @@
 #include <semaphore.h>
 #include <stdlib.h>
 
+#define DIREITA          0
+#define ESQUERDA         1
+#define ESPERANDO_CORDA  2
+#define CORDA            3
+
 typedef struct mapa
 {
    int ponte_x, ponte_y, ponte_len;
+   int placa_x, placa_y;
 } mapa_t;
 
 typedef struct macaco
@@ -16,6 +22,7 @@ typedef struct macaco
    int id;
    int sentido;
    int x, y;
+   int estado;
    struct macaco* next;
 } macaco_t;
 
