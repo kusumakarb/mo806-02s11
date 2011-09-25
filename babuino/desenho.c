@@ -6,7 +6,6 @@
 #define BRANCO(X) _COR(1,X)
 
 #define LOCK(X) pthread_mutex_lock(&lock); X pthread_mutex_unlock(&lock);
-#define FREE_L(X) for (; X != NULL; X = X = X->next) free((void*)X);
 
 #define D_SLEEP 1
 
@@ -24,6 +23,15 @@ static volatile pos_t *tenta_corda_esq;
 static volatile pos_t *saiu_corda_dir;
 static volatile pos_t *saiu_corda_esq;
 
+void free_l(volatile pos_t* p)
+{
+   for (; p != NULL; p = p->next) free((void*)p);
+}
+
+void free_m(volatile macaco_t* p)
+{
+   for (; p != NULL; p = p->next) free((void*)p);
+}
 
 void desenha_macaco_grde(int x, int y)
 {
@@ -75,7 +83,7 @@ static void move_macaco(macaco_t* m, int x, int y)
 void desenha_mapa()
 {
    int col, row;
-   int i, j;
+   int i;
    mapa_t* m;
    int distancia_topo, altura_placa;
    char* ponte;
@@ -208,14 +216,14 @@ void desenho_destroy()
    // finish ncurses
    endwin();
 
-   FREE_L(macacos);
-   FREE_L(esquerda);
-   FREE_L(direita);
-   FREE_L(corda);
-   FREE_L(tenta_corda_esq);
-   FREE_L(tenta_corda_dir);
-   FREE_L(saiu_corda_dir);
-   FREE_L(saiu_corda_dir);
+   free_m(macacos);
+   free_l(esquerda);
+   free_l(direita);
+   free_l(corda);
+   free_l(tenta_corda_esq);
+   free_l(tenta_corda_dir);
+   free_l(saiu_corda_dir);
+   free_l(saiu_corda_dir);
 }
 
 macaco_t* new_macaco(int sentido)
@@ -235,6 +243,7 @@ macaco_t* new_macaco(int sentido)
          macacos = m;
       else
       {
+         i = 1;
          for (n = (macaco_t*)macacos; n->next != NULL; n = n->next)
             i++;
 
@@ -344,6 +353,8 @@ int desenho_novo_macaco(int sentido)
       p = aloca_pos((pos_t**)&direita, mapa.dir_ix, mapa.dir_iy, mapa.dir_fx);
 
    move_macaco(m, p->x, p->y);
+
+   return m->id;
 }
 
 void desenho_muda_corda(int novo_sentido, int id_macaco)
@@ -355,9 +366,9 @@ void desenho_muda_corda(int novo_sentido, int id_macaco)
    dir   = "--->>";
 
    if (novo_sentido == DIREITA)
-      v = dir;
-   else if (novo_sentido == ESQUERDA)
       v = esq;
+   else if (novo_sentido == ESQUERDA)
+      v = dir;
    else
       v = livre;
 
