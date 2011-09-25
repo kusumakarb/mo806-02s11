@@ -45,11 +45,19 @@ static volatile int balanco;
 static volatile int esperando_dir;
 static volatile int esperando_esq;
 
-int entra_corda(int s)
+void muda_sentido(int sentido, int id_macaco)
+{
+   estado_corda = sentido;
+   desenho_muda_corda(sentido, id_macaco);
+}
+
+int entra_corda(int s, int id_macaco)
 {
    int i;
    int pode_seguir;
    sem_t* sem;
+
+   desenho_tenta_corda(id_macaco);
 
    sem_wait(&corda);
 
@@ -68,12 +76,12 @@ int entra_corda(int s)
       // I'm the first to get to the rope, let's capture it
       if (s == DIR)
       {
-         estado_corda = DIR_ST;
+         muda_sentido(DIR_ST, id_macaco);
          sem = &direita;
       }
       else
       {
-         estado_corda = ESQ_ST;
+         muda_sentido(ESQ_ST, id_macaco);
          sem = &esquerda;
       }
 
@@ -114,16 +122,23 @@ int entra_corda(int s)
 
    sem_post(&corda);
 
+   if (pode_seguir)
+      desenho_entra_corda(id_macaco);
+   else
+      desenho_desiste_corda(id_macaco);
+
    return pode_seguir;
 }
 
-void sai_corda(int s)
+void sai_corda(int s, int id_macaco)
 {
    int p;
 
    sem_wait(&corda);
 
    nro_corda--;
+
+   desenho_sai_corda(id_macaco);
 
    // Am I the last one?
    if (nro_corda == 0)
@@ -134,7 +149,7 @@ void sai_corda(int s)
       if (balanco > MAX_DIFF && esperando_esq > 0)
       {
          // let left side play
-         estado_corda = ESQ_ST;
+         muda_sentido(ESQ_ST, id_macaco);
          MIN(esperando_esq, MAX_CORDA, p);
          POST_V(&esquerda, p);
       }
@@ -143,6 +158,7 @@ void sai_corda(int s)
       {
          // let right side play
          estado_corda = DIR_ST;
+         muda_sentido(DIR_ST, id_macaco);
          MIN(esperando_dir, MAX_CORDA, p);
          POST_V(&direita, p);
       }
@@ -152,22 +168,22 @@ void sai_corda(int s)
          if (esperando_dir > 0)
          {
             // right
-            estado_corda = DIR_ST;
+            muda_sentido(DIR_ST, id_macaco);
             MIN(esperando_dir, MAX_CORDA, p);
             POST_V(&direita, p);
          }
          else if (esperando_esq > 0)
          {
             // left
-            estado_corda = ESQ_ST;
+            muda_sentido(ESQ_ST, id_macaco);
             MIN(esperando_esq, MAX_CORDA, p);
             POST_V(&esquerda, p);
          }
          else
          {
             // I'm the last one! It's my moral duty to free the rope
-            estado_corda = LIVRE_ST;
-            
+            muda_sentido(LIVRE_ST, id_macaco);
+
             sem_post(&esquerda);
             sem_post(&direita);
 
@@ -238,22 +254,22 @@ void* babuino(void* sen)
 
    id_macaco = desenho_novo_macaco(s);
 
-   // I shouldn't overload the rope with my weight
-   // wait for my budies to get to the other side
-   sem_wait(sem);
-
-   // let's see if I can get on the rope
-   while (!entra_corda(s))
+   do
    {
-      // well, not this time, I'll wait here
+      // I shouldn't overload the rope with my weight
+      // wait for my budies to get to the other side
       sem_wait(sem);
-   } 
+
+      // let's see if I can get on the rope
+   } while (!entra_corda(s, id_macaco));
 
    // ** yeap, on the rope! **
    print(s);
 
+   sleep( (int) ( 3.0 * random() / RAND_MAX ) );
+
    // leaving the rope
-   sai_corda(s);
+   sai_corda(s, id_macaco);
 
    return NULL;
 }
