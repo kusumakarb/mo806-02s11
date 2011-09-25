@@ -3,13 +3,17 @@
 
 #include <curses.h>
 #include <string.h>
-#include <semaphore.h>
+#include <pthread.h>
 #include <stdlib.h>
 
 #define DIREITA          0
 #define ESQUERDA         1
-#define ESPERANDO_CORDA  2
-#define CORDA            3
+#define ESP_CORDA_DIR    2
+#define ESP_CORDA_ESQ    3
+#define CORDA_DIR        4
+#define CORDA_ESQ        5
+#define SAIU_DIR         6
+#define SAIU_ESQ         7
 
 typedef struct mapa
 {
@@ -20,6 +24,18 @@ typedef struct mapa
    // e da direita
    int esq_ix, esq_iy, esq_fx;
    int dir_ix, dir_iy, dir_fx;
+
+   // posicao de inicio e fim da corda
+   int cor_ix, cor_iy, cor_fx;
+
+   // posicoes de espera
+   int esp_cor_dir_ix, esp_cor_dir_iy, esp_cor_dir_fx;
+   int esp_cor_esq_ix, esp_cor_esq_iy, esp_cor_esq_fx;
+
+   // posicao saida
+   int saiu_dir_ix, saiu_dir_iy, saiu_dir_fx;
+   int saiu_esq_ix, saiu_esq_iy, saiu_esq_fx;
+
 } mapa_t;
 
 typedef struct pos
