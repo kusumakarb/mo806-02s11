@@ -1,13 +1,18 @@
 #include "desenho.h"
 
 #define _COR(C,X) attron(COLOR_PAIR(C)); X attroff(COLOR_PAIR(C));
-#define BRANCO(X) _COR(1,X)
-#define BRANCO(X) _COR(1,X)
-#define BRANCO(X) _COR(1,X)
+#define BLACK(X) _COR(0,X)
+#define RED(X) _COR(1,X)
+#define GREEN(X) _COR(2,X)
+#define YELLOW(X) _COR(3,X)
+#define BLUE(X) _COR(4,X)
+#define MARGENTA(X) _COR(5,X)
+#define CYAN(X) _COR(6,X)
+#define WHITE(X) _COR(7,X)
 
 #define LOCK(X) pthread_mutex_lock(&lock); X pthread_mutex_unlock(&lock);
 
-#define D_SLEEP 1
+#define D_SLEEP usleep(500000)
 
 static mapa_t mapa;
 static pthread_mutex_t lock;
@@ -24,13 +29,27 @@ static volatile pos_t *saiu_corda_dir;
 static volatile pos_t *saiu_corda_esq;
 
 void free_l(volatile pos_t* p)
-{
-   for (; p != NULL; p = p->next) free((void*)p);
+{   
+   pos_t* temp;
+   
+   while(p != NULL)
+   {
+      temp = p;
+      p = p->next;
+      free(temp);
+   }
 }
 
 void free_m(volatile macaco_t* p)
 {
-   for (; p != NULL; p = p->next) free((void*)p);
+   pos_t* temp;
+   
+   while(p != NULL)
+   {
+      temp = p;
+      p = p->next;
+      free(temp);
+   }
 }
 
 void desenha_macaco_grde(int x, int y)
@@ -44,7 +63,6 @@ void desenha_macaco_grde(int x, int y)
         /`"""`\
        /       \
 */
-
    mvprintw(y-6, x, "   .-\"-.");
    mvprintw(y-5, x, " _/.-.-.\\_");
    mvprintw(y-4, x, "( ( o o ) )");
@@ -76,7 +94,7 @@ static void move_macaco(macaco_t* m, int x, int y)
 
       refresh();
 
-      sleep(D_SLEEP);
+      D_SLEEP;
    )
 }
 
@@ -376,7 +394,7 @@ void desenho_muda_corda(int novo_sentido, int id_macaco)
    (
       mvprintw(mapa.placa_y, mapa.placa_x, v);
       refresh();
-      sleep(D_SLEEP);
+      D_SLEEP;
    )
 }
 
