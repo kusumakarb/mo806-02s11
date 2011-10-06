@@ -7,10 +7,10 @@
 
 //#define DEBUG
 
-#define THREAD_NUM 20
+#define THREAD_NUM 100
 #define CHANCE_DIR 0.5
 #define MAX_CORDA 5
-#define MAX_DIFF 10
+#define MAX_DIFF 5
 
 #define DIR 0
 #define ESQ 1
@@ -49,16 +49,21 @@ static volatile int esperando_esq;
 void muda_sentido(int sentido, int id_macaco)
 {
    estado_corda = sentido;
+#ifndef DEBUG
    desenho_muda_corda(sentido, id_macaco);
+#endif
 }
 
 int entra_corda(int s, int id_macaco)
 {
-   int i;
+   int p = 5;
+   int esperando;
    int pode_seguir;
    sem_t* sem;
 
+#ifndef DEBUG
    desenho_tenta_corda(id_macaco);
+#endif
 
    sem_wait(&corda);
 
@@ -79,19 +84,21 @@ int entra_corda(int s, int id_macaco)
       {
          muda_sentido(DIR_ST, id_macaco);
          sem = &direita;
+         esperando = esperando_dir;
       }
       else
       {
          muda_sentido(ESQ_ST, id_macaco);
          sem = &esquerda;
+         esperando = esperando_dir;
       }
 
       // I can continue
       pode_seguir = 1;
 
       // and let my budies in
-      for (i = 0; i < MAX_CORDA - 1; i++)
-         sem_post(sem);
+      MIN(esperando, MAX_CORDA, p);
+      POST_V(sem, p)
    }
    else if (IS_MY_DIRECTION(s))
    {
@@ -123,10 +130,12 @@ int entra_corda(int s, int id_macaco)
 
    sem_post(&corda);
 
+#ifndef DEBUG
    if (pode_seguir)
       desenho_entra_corda(id_macaco);
    else
       desenho_desiste_corda(id_macaco);
+#endif
 
    return pode_seguir;
 }
@@ -139,7 +148,9 @@ void sai_corda(int s, int id_macaco)
 
    nro_corda--;
 
+#ifndef DEBUG
    desenho_sai_corda(id_macaco);
+#endif
 
    // Am I the last one?
    if (nro_corda == 0)
@@ -158,7 +169,6 @@ void sai_corda(int s, int id_macaco)
       else if (balanco < -MAX_DIFF && esperando_dir > 0)
       {
          // let right side play
-         estado_corda = DIR_ST;
          muda_sentido(DIR_ST, id_macaco);
          MIN(esperando_dir, MAX_CORDA, p);
          POST_V(&direita, p);
@@ -236,8 +246,7 @@ void* babuino(void* sen)
    int entrou_corda;
    sem_t* sem;
 
-   s = (int)(long long int)sen;
-   entrou_corda = 0;
+   s = (int)sen;
 
    if (s == ESQ)
       sem = &esquerda;
@@ -252,9 +261,9 @@ void* babuino(void* sen)
       esperando_esq++;
 
    sem_post(&corda);   
-
+#ifndef DEBUG
    id_macaco = desenho_novo_macaco(s);
-
+#endif
    do
    {
       // I shouldn't overload the rope with my weight
@@ -267,7 +276,7 @@ void* babuino(void* sen)
    // ** yeap, on the rope! **
    print(s);
 
-   sleep( (int) ( 6.0 * random() / RAND_MAX ) );
+   sleep( (int) ( 5.0 * random() / RAND_MAX ) );
 
    // leaving the rope
    sai_corda(s, id_macaco);
@@ -281,7 +290,9 @@ int main(int argn, char** argv)
    int s;
    pthread_t t[THREAD_NUM];
 
+#ifndef DEBUG
    desenho_init();
+#endif
 
    // set random seed based on current time
    srandom((unsigned int)time(NULL));
@@ -307,7 +318,7 @@ int main(int argn, char** argv)
    {
       // random direction
       s = random() > RAND_MAX * CHANCE_DIR;
-      pthread_create(&t[i], NULL, babuino, (int*)(long long int)s);
+      pthread_create(&t[i], NULL, babuino, (int*)s);
    }
 
    // wait for threads to finish
@@ -320,7 +331,9 @@ int main(int argn, char** argv)
    sem_destroy(&direita);
    sem_destroy(&corda);
 
+#ifndef DEBUG
    desenho_destroy();
+#endif
 
    return 0;
 }
