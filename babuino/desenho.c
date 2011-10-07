@@ -1,14 +1,6 @@
 #include "desenho.h"
 
-#define _COR(C,X) attron(COLOR_PAIR(C)); X attroff(COLOR_PAIR(C));
-#define BLACK(X) _COR(0,X)
-#define RED(X) _COR(1,X)
-#define GREEN(X) _COR(2,X)
-#define YELLOW(X) _COR(3,X)
-#define BLUE(X) _COR(4,X)
-#define MARGENTA(X) _COR(5,X)
-#define CYAN(X) _COR(6,X)
-#define WHITE(X) _COR(7,X)
+#define COR(C,X) attron(COLOR_PAIR(C)); X attroff(COLOR_PAIR(C));
 
 #define LOCK(X) pthread_mutex_lock(&lock); X pthread_mutex_unlock(&lock);
 
@@ -18,6 +10,7 @@ static mapa_t mapa;
 static pthread_mutex_t lock;
 
 static volatile macaco_t* macacos;
+volatile int color;
 
 // posicoes ocupadas em cada local
 static volatile pos_t *esquerda;
@@ -34,7 +27,7 @@ void free_l(volatile pos_t* p)
    
    while(p != NULL)
    {
-      temp = p;
+      temp = (pos_t*)p;
       p = p->next;
       free(temp);
    }
@@ -42,11 +35,11 @@ void free_l(volatile pos_t* p)
 
 void free_m(volatile macaco_t* p)
 {
-   pos_t* temp;
+   macaco_t* temp;
    
    while(p != NULL)
    {
-      temp = p;
+      temp = (macaco_t*)p;
       p = p->next;
       free(temp);
    }
@@ -63,13 +56,17 @@ void desenha_macaco_grde(int x, int y)
         /`"""`\
        /       \
 */
-   mvprintw(y-6, x, "   .-\"-.");
-   mvprintw(y-5, x, " _/.-.-.\\_");
-   mvprintw(y-4, x, "( ( o o ) )");
-   mvprintw(y-3, x, " |/  \"  \\|");
-   mvprintw(y-2, x, "  \\  O  /");
-   mvprintw(y-1, x, "  /`\"\"\"`\\");
-   mvprintw(y-0, x, " /       \\");
+   COR
+   (
+      CYAN,
+      mvprintw(y-6, x, "   .-\"-.");
+      mvprintw(y-5, x, " _/.-.-.\\_");
+      mvprintw(y-4, x, "( ( o o ) )");
+      mvprintw(y-3, x, " |/  \"  \\|");
+      mvprintw(y-2, x, "  \\  O  /");
+      mvprintw(y-1, x, "  /`\"\"\"`\\");
+      mvprintw(y-0, x, " /       \\");
+   )
 }
 
 static void move_macaco(macaco_t* m, int x, int y)
@@ -88,10 +85,12 @@ static void move_macaco(macaco_t* m, int x, int y)
       
       m->x = x;
       m->y = y;
-      
       // desenha posicao nova
-      mvprintw(m->y, m->x, d);
-
+      COR
+      (
+         m->color,
+         mvprintw(m->y, m->x, d);
+      )
       refresh();
 
       D_SLEEP;
@@ -116,25 +115,27 @@ void desenha_mapa()
    m->ponte_x = ( col - strlen(ponte) ) /2;
    m->ponte_y = distancia_topo;
    m->ponte_len = strlen(ponte);
+   COR
+   (
+      YELLOW,
+      // ponte
+      mvprintw(m->ponte_y, m->ponte_x, ponte);
 
-   // ponte
-   mvprintw(m->ponte_y, m->ponte_x, ponte);
+      // altura
+      for (i = m->ponte_y + 1; i < row; i++)
+      {
+         mvprintw(i, m->ponte_x, "|");
+         mvprintw(i, m->ponte_x + m->ponte_len - 1, "|");
+      }
 
-   // altura
-   for (i = m->ponte_y + 1; i < row; i++)
-   {
-      mvprintw(i, m->ponte_x, "|");
-      mvprintw(i, m->ponte_x + m->ponte_len - 1, "|");
-   }
+      // chao esq
+      for (i = m->ponte_x - 1; i >= 0; i--)
+         mvprintw(m->ponte_y, i, "_");
 
-   // chao esq
-   for (i = m->ponte_x - 1; i >= 0; i--)
-      mvprintw(m->ponte_y, i, "_");
-
-   // chao dir
-   for (i = m->ponte_x + m->ponte_len + 1; i < col; i++)
-      mvprintw(m->ponte_y, i, "_");
-
+      // chao dir
+      for (i = m->ponte_x + m->ponte_len + 1; i < col; i++)
+         mvprintw(m->ponte_y, i, "_");
+   )
    // define limites
    //esquerda
    m->esq_ix = 3;
@@ -174,13 +175,21 @@ void desenha_mapa()
    // placa
    m->placa_x = m->ponte_x + m->ponte_len/2;
    for (i = 0; i < altura_placa - 2; i++)
+   {
+      COR
+      (
+         WHITE,
          mvprintw(i, m->placa_x - 3, "|         |");
+      )
+   }
 
-
-   mvprintw(altura_placa - 2, m->placa_x - 3, "###########");
-   mvprintw(altura_placa - 1, m->placa_x - 3, "#  LIVRE  #");
-   mvprintw(altura_placa - 0, m->placa_x - 3, "###########");
-
+   COR
+   (
+      WHITE,
+      mvprintw(altura_placa - 2, m->placa_x - 3, "###########");
+      mvprintw(altura_placa - 1, m->placa_x - 3, "#  LIVRE  #");
+      mvprintw(altura_placa - 0, m->placa_x - 3, "###########");
+   )
    // posicao do texto da placa
    m->placa_x = m->placa_x;
    m->placa_y = altura_placa - 1;
@@ -209,7 +218,14 @@ void desenho_init()
 
    start_color();
 
-   init_pair(1, COLOR_WHITE, COLOR_BLACK);
+   init_pair(BLACK, COLOR_BLACK, COLOR_BLACK);
+   init_pair(RED, COLOR_RED, COLOR_BLACK);
+   init_pair(GREEN, COLOR_GREEN, COLOR_BLACK);
+   init_pair(YELLOW, COLOR_YELLOW, COLOR_BLACK);
+   init_pair(BLUE, COLOR_BLUE, COLOR_BLACK);
+   init_pair(MAGENTA, COLOR_MAGENTA, COLOR_BLACK);
+   init_pair(CYAN, COLOR_CYAN, COLOR_BLACK);
+   init_pair(WHITE, COLOR_WHITE, COLOR_BLACK);
 
    macacos = NULL;
    esquerda = NULL;
@@ -219,6 +235,7 @@ void desenho_init()
    tenta_corda_dir = NULL;
    saiu_corda_dir = NULL;
    saiu_corda_esq = NULL;
+   color = 0;
 
    desenha_mapa();
 }
@@ -269,6 +286,8 @@ macaco_t* new_macaco(int sentido)
       }
 
       m->id = i;
+      color = ((++color)%7)+1;
+      m->color = color;
    )
 
    return m;
@@ -392,7 +411,11 @@ void desenho_muda_corda(int novo_sentido, int id_macaco)
 
    LOCK
    (
-      mvprintw(mapa.placa_y, mapa.placa_x, v);
+      COR
+      (
+         GREEN,
+         mvprintw(mapa.placa_y, mapa.placa_x, v);
+      )
       refresh();
       D_SLEEP;
    )
