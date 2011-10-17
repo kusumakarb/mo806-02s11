@@ -22,7 +22,7 @@ MC806 - Operational System Topics\\}
 %--- create section frame for every new section --%
 \AtBeginSection[]
 {
-   \begin{frame}
+   \begin{frame}[shrink=0.7]
        \frametitle{Agenda}
        \tableofcontents[currentsection]
    \end{frame}
@@ -34,7 +34,7 @@ MC806 - Operational System Topics\\}
 
 %--- content -------------------------------------%
 \begin{frame}{Agenda}
-  \tableofcontents
+  \tableofcontents[hidesubsections]
 \end{frame}
 
 \section{Objectives}
@@ -45,7 +45,7 @@ MC806 - Operational System Topics\\}
 
 	\begin{itemize}[<+->]
 
-		\item{View the Linux's Virtual File System as a series of object oriented entities (classes and objects)}
+		\item{View the Linux's Virtual File System as a series of object oriented entities (classes and objects)}\footnotemark
 
 		\item{Construct UML models to easy understanding}
 		
@@ -54,6 +54,8 @@ MC806 - Operational System Topics\\}
 	\end{itemize}
 
   \end{block}
+
+	\footnote[1]{Althought the linux kernel is written in C, it's possible to profit from some object oriented features through programming tricks. For further deailts see: OOC, Axel Schreiner}
 
 \end{frame}
 
@@ -73,7 +75,7 @@ MC806 - Operational System Topics\\}
 
 \end{frame}
 
-\section{Linux's Virtual File System Overview}
+\section{Overview}
 
 \begin{frame}{What's Linux's Virtual File System}
 
@@ -83,7 +85,7 @@ MC806 - Operational System Topics\\}
 	is the software layer in the kernel that provides the filesystem
 	interface to userspace programs. It also provides an abstraction
 	within the kernel which allows different filesystem implementations to
-	coexist. \footnotemark
+	coexist. \footnotemark[1]
 
   \end{block}
 
@@ -139,7 +141,7 @@ MC806 - Operational System Topics\\}
 
 %--- Linux's Virtual File System Core Elements------------------%
 
-\section{Linux's Virtual File System Core Elements}
+\section{Core Elements}
 
 \begin{frame}{Linux's Virtual File System Core Elements}
 
@@ -277,13 +279,9 @@ MC806 - Operational System Topics\\}
 
 \subsection{What is FUSE?}
 
-\subsection{What is it for?}
-
-\subsection{Who uses FUSE?}
-
 \subsection{FUSE Architecture}
 
-\subsection{Comparission between FUSE and}
+\subsection{Comparission between FUSE and kernel fs implementations}
 
 %--- obrigado-------------------------------------%
 
