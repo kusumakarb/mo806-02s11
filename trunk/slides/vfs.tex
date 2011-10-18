@@ -369,11 +369,70 @@ MC806 - Operational System Topics\\}
 
 		\item{FUSE is composed of two parts}
 			\begin{itemize}
-				\item[$-$]{User space library - provies to the filesystem application an API}
+				\item[$-$]{User space library - libfuse - provies to the filesystem application an API}
 				\item[$-$]{Kernel surrogate filesystem implementation - fs/fuse }
 			\end{itemize}	
 	
 	\end{itemize}
+	
+\end{frame}
+
+\begin{frame}{FUSE - User space library (libfuse)}
+	
+	\begin{itemize}[<+->]
+
+		\item{Provides an abstraction layer to the filesystem application}		
+		\item{Binds the userland application to the FUSE kernel module}
+		\item{Application has to provied implementation to FUSE operations}		
+		\item{Communicates with the FUSE kernel module in behalf of the application}
+		\item{Listen for FUSE kernel messages that should be forwarded to the application}
+			
+	\end{itemize}
+	
+\end{frame}
+
+\begin{frame}{FUSE - Kernel module (fusefs)}
+	
+	\begin{itemize}[<+->]
+
+		\item{Manages bound filesystem (but to the kernel there's just FUSE}
+		\item{Selects the apropriete userland application to complete an operation, based on the mount point}
+		\item{Allows synchronical or multi-threaded operations (mount option)}
+
+	\end{itemize}
+	
+\end{frame}
+
+\begin{frame}{FUSE - How kernel and application communicates?}
+	
+	\begin{itemize}[<+->]
+
+		\item{fusefs registers a special character file: /dev/fuse}
+		\item{The application wants to mount its filesystem implementation}
+		\item{The application issues a libfuse call to start and...}
+		\begin{itemize}
+			\item[$-$]{libfuse forks}
+			\item[$-$]{libfuse opens /dev/fuse}
+			\item[$-$]{libfuse issues a mount call passing /dev/fuse file descriptor (fd) as an option parameter}
+			\item[$-$]{The VFS passes the mount call down to fusefs}
+			\item[$-$]{fusefs associates the mount point to the file from fd}
+			\item[$-$]{libfuse reads the file and fusefs writes to the file}
+			\item[$-$]{libfuse forwards calls to the application throught a UNIX socket}			
+		\end{itemize}
+		\item{All above is done by libfuse and the user just need to implement some FUSE operations}
+
+	\end{itemize}
+	
+	\let\thefootnote\relax\footnotetext{Sources: FUSE Design Document, William Krier and Erick Liska, 2009)\\
+	FUSE Kernel Operations, Vikas Gera, 2006)}
+	
+\end{frame}
+
+\begin{frame}{FUSE Architecture}
+	
+	\center{\includegraphics[scale=0.26]{img/fuse_arch.png}}
+	
+	\let\thefootnote\relax\footnotetext{Source: FUSE Kernel Operations, Vikas Gera, 2006}
 	
 \end{frame}
 
