@@ -13,7 +13,7 @@ Zhenlei Ji - \texttt{zhenlei.ji@gmail.com}}
 MC806 - Operational System Topics\\}
 
 \title[Linux VFS]{Linux Virtual File System}
-\subtitle[]{The linux VFS and FUSE - File System in User Space}
+\subtitle[]{The linux VFS and FUSE - Filesystem in User Space}
 
 \date[10/20/2011]{October 20th, 2011}
 
@@ -45,17 +45,17 @@ MC806 - Operational System Topics\\}
 
 	\begin{itemize}[<+->]
 
-		\item{View the Linux's Virtual File System as a series of object oriented entities (classes and objects)}\footnotemark
+		\item{View the Linux's Virtual Filesystem as a series of object oriented entities (classes and objects)}\footnotemark
 
 		\item{Construct UML models to easy understanding}
 		
-		\item{Provide initial information so one can start developing a file system module for the Linux kernel}
+		\item{Provide initial information so one can start developing a filesystem module for the Linux kernel}
 	
 	\end{itemize}
 
   \end{block}
 
-	\footnote[1]{Althought the linux kernel is written in C, it's possible to profit from some object oriented features through programming tricks. For further deailts see: OOC, Axel Schreiner}
+	\footnotetext[1]{Althought the linux kernel is written in C, it's possible to profit from some object oriented features through programming tricks. For further deailts see: OOC, Axel Schreiner}
 
 \end{frame}
 
@@ -65,7 +65,7 @@ MC806 - Operational System Topics\\}
 
 	\begin{itemize}[<+->]
 
-		\item{All information here is based extensively on linux kernel 3.1-rc8 source code}
+		\item{All information here is based extensively on linux kernel 3.1-rc8 source code\footnotemark[1]}
 
 		\item{Some models are represented at a certain level of abstraction and may omit some implementation information}
 	
@@ -73,11 +73,13 @@ MC806 - Operational System Topics\\}
 
   \end{block}
 
+	\footnotetext[1]{You can easly find something in the kernel source code using this tools: http://lxr.linux.no/linux}
+
 \end{frame}
 
 \section{Overview}
 
-\begin{frame}{What's Linux's Virtual File System}
+\begin{frame}{What's Linux's Virtual Filesystem}
 
   \begin{block}{Definition}
 
@@ -93,13 +95,13 @@ MC806 - Operational System Topics\\}
 
 \end{frame}
 
-\begin{frame}{Linux's Virtual File System Overview}
+\begin{frame}{Linux's Virtual Filesystem Overview}
 
 	\includegraphics[scale=0.5]{img/vfs_overview.png}
 
 \end{frame}
 
-\begin{frame}{Linux's Virtual File System Overview}
+\begin{frame}{Linux's Virtual Filesystem Overview}
 
 	\begin{itemize}[<+->]
 	
@@ -114,13 +116,13 @@ MC806 - Operational System Topics\\}
 			\end{itemize}	
 	\end{itemize}
 
-	\footnotetext[1]{Short for "file system"}
+	\footnotetext[1]{Short for "filesystem"}
 
 \end{frame}
 
-\begin{frame}{Linux's Virtual File System Overview}
+\begin{frame}{Linux's Virtual Filesystem Overview}
 
-	\begin{block}{How is a file system implemented?}
+	\begin{block}{How is a filesystem implemented?}
 		With loadable kernel modules\footnotemark[1] (LKM), or just modules for short.
 	\end{block}
 
@@ -143,13 +145,13 @@ MC806 - Operational System Topics\\}
 
 \section{Core Elements}
 
-\begin{frame}{Linux's Virtual File System Core Elements}
+\begin{frame}{Linux's Virtual Filesystem Core Elements}
 
 	\begin{description}[<+->]\itemsep4pt
 			
 		\item[file\_system\_type]{Information about a specific fs type}
 		\item[vfsmount]{Mount point information}		
-		\item[super\_block]{Represents a mounted file system}
+		\item[super\_block]{Represents a mounted filesystem}
 		\item[inode]{Information about a file (on disk, memory or network)}
 		\item[dentry]{A directory entry}
 		\item[file]{A file abstraction - points to a inode}
@@ -162,7 +164,7 @@ MC806 - Operational System Topics\\}
 
 \end{frame}
 
-\begin{frame}{Linux's Virtual File System Core Elements}
+\begin{frame}{Linux's Virtual Filesystem Core Elements}
 	
 	\center{\includegraphics[scale=0.35]{img/vfs_elements_simple.png}}
 
@@ -180,12 +182,12 @@ MC806 - Operational System Topics\\}
 	
 	\begin{itemize}[<+->]
 	
-		\item[$\bullet$]{Represents a file system type (e.g. ext3, nfs, fuse)}
-		\item[$\bullet$]{fs/filesystems.c has a linked list of file system types}
-		\item[$\bullet$]{Each file system type must have a unique name}
-		\item[$\bullet$]{Each file system type has a linked list of super blocks in use (i.e. mounted)}		
-		\item[$\bullet$]{Each file system type is owned by a module (which implements it)}
-		\item[$\bullet$]{Each file system type has a function to mount a (possibly new) instance of the file system}
+		\item[$\bullet$]{Represents a filesystem type (e.g. ext3, nfs, fuse)}
+		\item[$\bullet$]{fs/filesystems.c has a linked list of filesystem types}
+		\item[$\bullet$]{Each filesystem type must have a unique name}
+		\item[$\bullet$]{Each filesystem type has a linked list of super blocks in use (i.e. mounted)}		
+		\item[$\bullet$]{Each filesystem type is owned by a module (which implements it)}
+		\item[$\bullet$]{Each filesystem type has a function to mount a (possibly new) instance of the filesystem}
 		
 	\end{itemize}
 
@@ -214,8 +216,8 @@ MC806 - Operational System Topics\\}
 		\item[$\bullet$]{Refers to the parent mount point (the one its mounted on) and has a list of mounted children}
 		\item[$\bullet$]{Points to the parent (mount point) dentry root}
 		\item[$\bullet$]{Has a dentry for its own root}
-		\item[$\bullet$]{Has the super block of the mounted file system}		
-		\item[$\bullet$]{Not directly handled by a file system implementation}
+		\item[$\bullet$]{Has the super block of the mounted filesystem}		
+		\item[$\bullet$]{Not directly handled by a filesystem implementation}
 		
 	\end{itemize}
 
@@ -233,17 +235,17 @@ MC806 - Operational System Topics\\}
 	
 	\begin{itemize}[<+->]
 
-		\item[$\bullet$]{Represents a file system instance}
-		\item[$\bullet$]{When the file system is disk based, the super block usualy is persisted on disk}		
+		\item[$\bullet$]{Represents a filesystem instance}
+		\item[$\bullet$]{When the filesystem is disk based, the super block usualy is persisted on disk}		
 		\item[$\bullet$]{It's kept on memory, but there's a dirty flag so it can eventualy be flush to disk (for disk based fs)}
-		\item[$\bullet$]{Defines file system's properties}
+		\item[$\bullet$]{Defines filesystem's properties}
 			\begin{itemize}
 				\item[$-$]{block size}
 				\item[$-$]{maximum file size}
 				\item[$-$]{access time granularity, among others}
 			\end{itemize}	
 		
-		\item[$\bullet$]{Refers to its file system type (and thus module owner)}
+		\item[$\bullet$]{Refers to its filesystem type (and thus module owner)}
 		\item[$\bullet$]{Points to its dentry root}
 		\item[$\bullet$]{Has a dentry for its own root}
 		\item[$\bullet$]{Has lists for open files and inodes in use}
@@ -269,7 +271,11 @@ MC806 - Operational System Topics\\}
 
 \subsection{Mount}
 
-\subsection{Open (a file)}
+\begin{frame}{Mount activity diagram}
+	
+	\center{\includegraphics[scale=0.4]{img/mount_act.png}}
+	
+\end{frame}
 
 \subsection{Read (a file)}
 
@@ -279,7 +285,97 @@ MC806 - Operational System Topics\\}
 
 \subsection{What is FUSE?}
 
+\begin{frame}{What is FUSE?}
+
+	\begin{block}{Filesystem in User Space}
+
+		\begin{itemize}[<+->]
+
+			\item{An open source framework for implementing filesystem in user land}\footnotemark[1]
+	
+		\end{itemize}
+
+	\end{block}
+
+	\footnotetext[1]{http://fuse.sourceforge.net/}
+
+\end{frame}
+
+\begin{frame}{What is it good for?}
+
+	\begin{itemize}[<+->]
+
+		\item{Higher abstraction - it's easier to write a fuse-based filesystem than a "native" linux filesystem}
+
+		\item{No kernel recompilation or module installs}
+		
+		\item{FUSE is already compiled within the kernel in common distros (e.g. Ubuntu)}
+	
+		\item{Applications in user space has lots of ready-to-use libraries}
+
+		\item{Write your filesystem in any programming language}
+		
+		\item{You won't crash the system :)}
+	
+	\end{itemize}
+
+\end{frame}
+
+\begin{frame}{What is it NOT good for?}
+
+	\begin{itemize}[<+->]
+
+		\item{Performance penalty (switches between user and kernel modes and higher indirection level)}
+
+		\item{If you need to override some kernel functionality (as the dentry cache, for instance)}
+	
+	\end{itemize}
+
+\end{frame}
+
+\begin{frame}{What is fuse-based?}
+
+	\begin{itemize}[<+->]
+
+		\item{Gmail filesystem}\footnotemark[1]
+		
+		\item{sshfs}\footnotemark[2]
+		
+		\item{WikipediaFS}\footnotemark[3]
+	
+	\end{itemize}
+	
+	\footnotetext[1]{http://richard.jones.name/google-hacks/gmail-filesystem/gmail-filesystem.html}
+
+	\footnotetext[2]{http://fuse.sourceforge.net/sshfs.html}	
+
+	\footnotetext[3]{http://en.wikipedia.org/wiki/WikipediaFS}	
+	
+\end{frame}
+
 \subsection{FUSE Architecture}
+
+\begin{frame}{FUSE basic workings}
+	
+	\center{\includegraphics[scale=0.5]{img/fuse_structure.png}}
+	
+	\let\thefootnote\relax\footnotetext{Source: http://fuse.sourceforge.net/}
+	
+\end{frame}
+
+\begin{frame}{FUSE in deep}
+	
+	\begin{itemize}[<+->]
+
+		\item{FUSE is composed of two parts}
+			\begin{itemize}
+				\item[$-$]{User space library - provies to the filesystem application an API}
+				\item[$-$]{Kernel surrogate filesystem implementation - fs/fuse }
+			\end{itemize}	
+	
+	\end{itemize}
+	
+\end{frame}
 
 \subsection{Comparission between FUSE and kernel fs implementations}
 
