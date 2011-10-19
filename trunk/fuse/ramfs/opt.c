@@ -1,38 +1,74 @@
+/**
+
+   ramfs, FUSE implementation
+   This is free software, distributed without any warranties.
+   Use at your own risk.
+   Andre Este <andre.esteve@students.ic.unicamp.br>
+   Zhenlei Ji <zhenlei.ji@students.ic.unicamp.br>
+
+ **/
+
+/**
+
+   Helper operations are coded here.
+
+ **/
+
+/**
+
+   If you haven't, read ramfs.c comments first.
+   Functions prototypes are commented in ramfs.f
+
+ **/
+
 #include "ramfs.h"
 
+// our fs' root
 static dentry_t* droot;
 
 int ilink(dentry_t* d, inode_t* in)
 {  
    dentry_t* dn;
 
+   // safe checks
    if (!d || d->in || !in)
       return -1;
 
-    in->nlink++;
+   // we will add a new dentry pointing this inode
+   // increment dentry count (link count)
+   in->nlink++;
 
-    if ( !in->dentries )
-       in->dentries = d;
-    else
-    {
-       for ( dn = in->dentries; dn->dinode; dn = dn->dinode )
+   // add dentry to inode list
+
+   if ( !in->dentries )
+      in->dentries = d;
+   else
+   {
+      for ( dn = in->dentries; dn->dinode; dn = dn->dinode )
           ;
-
-       dn->dinode = d;
-    }
-
-    d->in = in;
-
-    return 0;
+      
+      dn->dinode = d;
+   }
+   
+   d->in = in;
+   
+   return 0;
 }
 
 int iunlink(dentry_t* d, inode_t* in)
 {
    dentry_t* dn;
-
+   
+   // safe checks
    if (!d || !in || d->in != in || in->nlink == 0)
-      return -1;
+      return -EIO;
+   
+   // if in is a directory and there are children
+   // or it's root
+   if ( S_ISDIR(in->mode) && ( d->dchild || d == droot ) )
+      return -EISDIR;
 
+   // remove dentry from inode list
    if ( in->dentries == d )
    {
       in->dentries = d->dinode;
@@ -43,15 +79,29 @@ int iunlink(dentry_t* d, inode_t* in)
          ;
 
       if (dn->in == NULL)
-         return -1;
+         return -EIO;
 
       dn->dinode = d->dinode;
    }
+
+   // remove dentry from parent children list
+   if (d->dparent->dchild == d)
+      d->dparent->dchild = d->dnext;
+   else
+   {
+      for ( dn = d->dparent->dchild; dn->dnext != d; dn = dn->dnext )
+         ;
+
+      dn->dnext = d->dnext;
+   }
    
    d->in = NULL;
+   // useless dentry
    free_dentry(d);
    in->nlink--;
 
+   // no more dentries pointing to this inode?
+   // if so, it's unreachable and we can kill it
    if (!in->nlink)
       free_inode(in);
 
@@ -105,7 +155,9 @@ dentry_t* alloc_dentry(char* name, inode_t* in)
       d->dnext = NULL;
       d->dchild = NULL;
       d->dinode = NULL;
+      d->dparent = NULL;
 
+      // links it to an inode
       if (!ilink(d, in))
       {
          nlen = strlen(name);
@@ -137,6 +189,7 @@ dentry_t* get_dentry(dentry_t* dparent, const char* name)
 {
    dentry_t* d;
 
+   // get dentry from parent list
    for (d = dparent->dchild; d != NULL; d = d->dnext)
       if (!strcmp(d->name, name))
           break;
@@ -144,6 +197,7 @@ dentry_t* get_dentry(dentry_t* dparent, const char* name)
    return d;
 }
 
+// internal function to get path
 static dentry_t* __get_path(char* path)
 {
    dentry_t* d;
@@ -174,6 +228,7 @@ dentry_t* get_parent(const char* path)
    char* l;
    size_t len;
 
+   // copy path, but leave filename
    l = rindex(path, '/');
    len = (size_t)l - (size_t)path;
 
@@ -215,11 +270,13 @@ int d_addchild(dentry_t* dparent, dentry_t* child)
 {
    dentry_t* d;
 
-   if (!dparent || !child)
+   // safe checks
+   if (!dparent || !child || child->dparent)
       return -1;
 
+   // add child to parent list
    if (!dparent->dchild)
-      dparent->dchild = child;
+      dparent->dchild = child;      
    else
    {
       for( d = dparent->dchild; d->dnext; d = d->dnext )
@@ -227,16 +284,22 @@ int d_addchild(dentry_t* dparent, dentry_t* child)
       
       d->dnext = child;
    } 
+
+   child->dparent = dparent;
    
    return 0;
 }
 
+void ramfs_opt_destroy()
+{
+   // oh, i'm just so lazy
+   // kernel will do it for me
+
+   // TODO: deepth first search and remove nodes botton up
+}
+
 void ramfs_opt_init()
 {
+   // alloc root inode and dentry
    droot = alloc_dentry("", alloc_inode(S_IFDIR | 0755));
-
-   droot->dchild = alloc_dentry("andre", alloc_inode(S_IFREG | 0755));
-   droot->dchild->in->data = malloc(4);
-   memcpy(droot->dchild->in->data, "hehe", 4);
-   droot->dchild->in->len = 4;
 }
