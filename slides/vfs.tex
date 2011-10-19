@@ -256,16 +256,98 @@ MC806 - Operational System Topics\\}
 \end{frame}
 
 \subsection{inode}
+\begin{frame}{inode}
+	
+	\begin{itemize}[<+->]
+
+		\item[$\bullet$]{Each object in the filesytem is represented by an inode}
+		\item[$\bullet$]{Each inode is indentified by a unique inode number within the filesystem}		
+		\item[$\bullet$]{The inode is only instantiated in memory at the time the file is opened}
+		
+		\item[$\bullet$]{Defines inode atributes}
+			\begin{itemize}
+				\item[$-$]{i\_ino}
+				\item[$-$]{i\_blksize, i\_block, i\_bytes}
+				\item[$-$]{i\_atime, i\_mtime, i\_ctime}
+			\end{itemize}
+	\end{itemize}
+
+	\begin{itemize}[<+->]
+		\item[$\bullet$]{Defines inode\_operations}
+			\begin{itemize}
+				\item[$-$]{create(dir, dentry, mode, nameidata)}
+				\item[$-$]{lookup(dir, dentry, nameidata)}
+				\item[$-$]{link(old\_dentry, dir, new\_dentry)}
+				\item[$-$]{mkdir(dir, dentry, mode)}
+				\item[$-$]{rmdir(dir, dentry)}
+				\item[$-$]{rename(old\_dir, old\_dentry, new\_dir, new\_dentry)}	
+				\item[$-$]{permission(inode, mask, nameidada)}
+			\end{itemize}
+
+		\item[$\bullet$]{A single inode can be pointed to by multiple dentries (hard links)}
+	\end{itemize}
+\end{frame}
 
 \subsection{dentry}
+\begin{frame}{dentry}
+	
+	\begin{itemize}[<+->]
 
-\subsection{file}
+		\item[$\bullet$]{The VFS considers each directory a file that contains a list of files and directories}
+		\item[$\bullet$]{Once a directory entry is read into memory, it is tranformed by the VFS into a dentry object}
+			\begin{itemize}
+				\item[$-$]{Example: /tmp/tex \newline tmp and vi are files, both represented by the inode.}
+			\end{itemize}
+		\item[$\bullet$]{The concept of input directory (dentry)}
+		\item[$\bullet$]{Specifc component of the path}
+		\item[$\bullet$]{The VFS instantiate these object "on the fly" when you make operation on directories}
+		\item[$\bullet$]{It's kept on memory}
+	\end{itemize}
+
+\end{frame}
+
+\begin{frame}{dentry}
+	
+	\begin{itemize}[<+->]
+		\item[$\bullet$]{Defines dentry atributes}
+			\begin{itemize}
+				\item[$-$]{d\_count}
+				\item[$-$]{d\_inode}
+				\item[$-$]{d\_parent}
+				\item[$-$]{d\_name}
+			\end{itemize}
+
+		\item[$\bullet$]{Dentry States:}
+			\begin{itemize}
+				\item[$-$]{Free: no valid information and is not used}
+				\item[$-$]{Unused: valid information and is not used, may be discarted if necessary}
+				\item[$-$]{In use: valid information and is used, cannot be discarted}
+				\item[$-$]{Negative: the inode associated with the dentry does not exist or invalid}
+			\end{itemize}
+	\end{itemize}
+
+\end{frame}
 
 %--- Dentry cache---------------------------------%
 
 \section{Dentry cache}
+	\begin{itemize}[<+->]
+		\item[$\bullet$]{Reading a directory entry from disk and constructing the correponding dentry object requires considerable time}
+		\item[$\bullet$]{A set of dentry in the in-use, unused, or negative state}
+		\item[$\bullet$]{A hash table to derive the dentry object associated with a given filename and  given directory quickly}
+		\item[$\bullet$]{}
+		\item[$\bullet$]{}
+			\begin{itemize}
+				\item[$-$]{Example: /tmp/tex \newline tmp and vi are files, both represented by the inode.}
+			\end{itemize}
+		\item[$\bullet$]{}
+	\end{itemize}
 
 %--- Dentry cache---------------------------------%
+
+\subsection{file}
+
+\section{Hard link x Simbolic link}
 
 \section{Operations detailed}
 
