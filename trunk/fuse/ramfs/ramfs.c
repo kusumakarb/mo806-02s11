@@ -1,96 +1,5 @@
 #include "ramfs.h"
 
-static dentry_t* droot;
-
-static int ilink(dentry_t* d, inode_t* in)
-{  
-   if (!d || d->in || !in)
-      return -1;
-
-    in->nlink++;
-
-    d->in = in;
-
-    return 0;
-}
-
-static inode_t* alloc_inode(r_mode_t mode)
-{
-   inode_t* in;
-
-   in = (inode_t*)malloc(sizeof(inode_t));
-
-   if (in)
-   {
-      in->data = NULL;
-      in->len = 0;
-      in->nlink = 0;
-      in->mode = mode;
-   }
-
-   return in;
-}
-
-static dentry_t* alloc_dentry(char* name, inode_t* in)
-{
-   dentry_t* d;
-
-   d = (dentry_t*)malloc(sizeof(dentry_t));
-
-   if (d)
-   {
-      d->name = name;
-      d->in = NULL;
-      d->dnext = NULL;
-      d->dchild = NULL;
-
-      if (ilink(d, in))
-      {
-         free(d);
-         d = NULL;
-      }
-   }
-
-   return d;
-}
-
-static dentry_t* get_dentry(dentry_t* dparent, const char* name)
-{
-   dentry_t* d;
-
-   for (d = dparent->dchild; d != NULL; d = d->dnext)
-      if (!strcmp(d->name, name))
-          break;
-
-   return d;
-}
-
-static dentry_t* get_path(const char* path)
-{
-   dentry_t* d;
-   char* t;
-   char p[MAX_PATH_SIZE];
-
-   if (!strcmp("/", path))
-      return droot;
-
-   strncpy(p, path, MAX_PATH_SIZE);
-   d = droot;
-
-   t = strtok(p, "/");
-
-   if ( t == NULL || (d = get_dentry(d, t)) == NULL )
-      return NULL;
-
-   while ( (t = strtok(NULL, "/") ))
-   {
-      if ( (d = get_dentry(d, t)) == NULL )
-         break;
-   }
-
-   return d;
-}
-
 static int ramfs_getattr(const char *path, struct stat *stbuf)
 {
    int res;
@@ -215,30 +124,74 @@ static int ramfs_write(const char* path, const char* buf, size_t size, off_t off
 
    return size;
 }
+
+static int __ramfs_mkentry(const char * path, mode_t mode)
+{
+   dentry_t* d;
+   dentry_t* nd;
+   char name[MAX_PATH_SIZE];
+
+   d = get_parent(path);
+
+   if (!d)
+      return -ENOENT;
+
+   get_filename(path, name);
+
+   if (get_dentry(d, name))
+      return -EEXIST;
+
+   nd = alloc_dentry(name, alloc_inode(mode));
+
+   if (d_addchild(d, nd))
+   {
+      iunlink(nd, nd->in);
+      return -ENOSPC;
+   }
+
+   return 0;
+}
+
+static int ramfs_mknod(const char * path, mode_t mode, dev_t dev)
+{
+   return __ramfs_mkentry(path, mode);
+}
+
+static int ramfs_mkdir(const char * path, mode_t mode)
+{
+   return __ramfs_mkentry(path, mode | S_IFDIR);
+}
+
+static void* ramfs_init(struct fuse_conn_info *conn)
+{
+   (void) conn;
+
+   log_init("log.txt");
+
+   ramfs_opt_init();
+
+   return NULL;
+}
+
+static void ramfs_destroy(void* v)
+{
+   log_destroy();
+}
+
   
-static struct fuse_operations hello_oper = {
+static struct fuse_operations ramfs_oper = {
+   .init = ramfs_init,
+   .destroy = ramfs_destroy,
    .getattr   = ramfs_getattr,
    .readdir = ramfs_readdir,
    .open   = ramfs_open,
    .read   = ramfs_read,
    .write = ramfs_write,
+   .mknod = ramfs_mknod,
+   .mkdir = ramfs_mkdir,
 };
-
-static void init_fs()
-{
-   init_log("log.txt");
-
-   droot = alloc_dentry("", alloc_inode(S_IFDIR | 0755));
-
-   droot->dchild = alloc_dentry("andre", alloc_inode(S_IFREG | 0755));
-   droot->dchild->in->data = malloc(4);
-   memcpy(droot->dchild->in->data, "hehe", 4);
-   droot->dchild->in->len = 4;
-}
   
 int main(int argc, char *argv[])
 {
-   init_fs();
-
-   return fuse_main(argc, argv, &hello_oper, NULL);
+   return fuse_main(argc, argv, &ramfs_oper, NULL);
 }
