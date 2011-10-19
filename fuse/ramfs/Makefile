@@ -1,5 +1,5 @@
-all: ramfs.h ramfs.c log.c opt.c
-	gcc log.c ramfs.c opt.c -o ramfs -g -Wall `pkg-config fuse --cflags --libs`
+all: ramfs.h ramfs.c opt.c
+	gcc ramfs.c opt.c -o ramfs -g -Wall `pkg-config fuse --cflags --libs`
 
 clean:
 	rm -f ramfs
