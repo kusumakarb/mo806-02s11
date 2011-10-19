@@ -12,16 +12,14 @@
 #include <fcntl.h>
 #include <stdlib.h>
 
-typedef __nlink_t r_nlink_t;
-typedef __mode_t r_mode_t;
-
-
 typedef struct inode
 {
    void* data;
    size_t len;   
-   r_nlink_t nlink;
-   r_mode_t mode;
+   nlink_t nlink;
+   mode_t mode;
+
+   struct dentry* dentries;
 } inode_t;
 
 
@@ -29,13 +27,35 @@ typedef struct dentry
 {
    inode_t* in;
    char* name;
+
    struct dentry* dnext; /* next dentry in parent linked list */
    struct dentry* dchild; /* children dentries linked list head */
+   struct dentry* dinode; /* linked list for inode reference */
+
 } dentry_t;
+
+/* operations */
+
+int ilink(dentry_t*, inode_t*);
+int iunlink(dentry_t*, inode_t*);
+inode_t* alloc_inode(mode_t);
+int free_inode(inode_t*);
+dentry_t* alloc_dentry(char*, inode_t*);
+int free_dentry(dentry_t*);
+dentry_t* get_path(const char*);
+dentry_t* get_dentry(dentry_t*, const char*);
+dentry_t* get_parent(const char*);
+void get_filename(const char*, char*);
+/**
+   d_addchild(parent, child);
+**/
+int d_addchild(dentry_t*, dentry_t*);
+void ramfs_opt_init();
 
 /* log */
 
-void init_log(const char*);
-void do_log(const char*);
+void log_init(const char*);
+void log_destroy();
+void log_do(const char*);
 
 #endif /*__RAM_FS_H__*/

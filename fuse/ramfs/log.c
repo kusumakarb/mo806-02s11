@@ -2,14 +2,22 @@
 
 static FILE* flog;
 
-void init_log(const char* path)
+void log_init(const char* path)
 {
    flog = fopen(path, "w");
 }
 
-void do_log(const char* str)
+void log_do(const char* str)
 {
    fwrite(str, strlen(str), 1, flog);
    fwrite("\n", 1, 1, flog);
    fflush(flog);
+}
+
+void log_destroy()
+{
+   if (flog)
+      fclose(flog);
+
+   flog = NULL;
 }
