@@ -256,6 +256,13 @@ MC806 - Operational System Topics\\}
 \end{frame}
 
 \subsection{inode}
+
+\begin{frame}{inode}
+	
+	\center{\includegraphics[scale=0.40]{img/inode.png}}
+	
+\end{frame}
+
 \begin{frame}{inode}
 	
 	\begin{itemize}[<+->]
@@ -266,12 +273,18 @@ MC806 - Operational System Topics\\}
 		
 		\item[$\bullet$]{Defines inode atributes}
 			\begin{itemize}
-				\item[$-$]{i\_ino}
-				\item[$-$]{i\_blksize, i\_block, i\_bytes}
-				\item[$-$]{i\_atime, i\_mtime, i\_ctime}
+				\item[$-$]{i\_hash: Pointer for the hash list}
+				\item[$-$]{i\_ino: inode number}
+				\item[$-$]{i\_blksize, i\_block, i\_bytes: respectively block size, number of block and block size of the last block}
+				\item[$-$]{i\_atime, i\_mtime, i\_ctime: respectively time of the last file access, write and change}
+				\item[$-$]{i\_nlink: number of hard links}
+				\item[$-$]{i\_sb: Pointer to superblock object}
 			\end{itemize}
 	\end{itemize}
 
+\end{frame}
+
+\begin{frame}{inode}
 	\begin{itemize}[<+->]
 		\item[$\bullet$]{Defines inode\_operations}
 			\begin{itemize}
@@ -288,7 +301,15 @@ MC806 - Operational System Topics\\}
 	\end{itemize}
 \end{frame}
 
+
 \subsection{dentry}
+
+\begin{frame}{dentry}
+	
+	\center{\includegraphics[scale=0.50]{img/dentry.png}}
+	
+\end{frame}
+
 \begin{frame}{dentry}
 	
 	\begin{itemize}[<+->]
@@ -306,15 +327,18 @@ MC806 - Operational System Topics\\}
 
 \end{frame}
 
+
 \begin{frame}{dentry}
-	
+
 	\begin{itemize}[<+->]
 		\item[$\bullet$]{Defines dentry atributes}
 			\begin{itemize}
-				\item[$-$]{d\_count}
-				\item[$-$]{d\_inode}
-				\item[$-$]{d\_parent}
-				\item[$-$]{d\_name}
+				\item[$-$]{d\_count: dentry object usage counter}
+				\item[$-$]{d\_inode: inode associated with filename}
+				\item[$-$]{d\_parent: dentry object of parent directory}
+				\item[$-$]{d\_name: filename}
+				\item[$-$]{d\_lru: pointer for the lis of unused dentries}
+				\item[$-$]{d\_alias: pointers for the list of dentries associated with the same inode}
 			\end{itemize}
 
 		\item[$\bullet$]{Dentry States:}
@@ -328,26 +352,81 @@ MC806 - Operational System Topics\\}
 
 \end{frame}
 
-%--- Dentry cache---------------------------------%
 
-\section{Dentry cache}
+\subsubsection{Dentry cache}
+
+\begin{frame}{Dentry cache}
 	\begin{itemize}[<+->]
 		\item[$\bullet$]{Reading a directory entry from disk and constructing the correponding dentry object requires considerable time}
 		\item[$\bullet$]{A set of dentry in the in-use, unused, or negative state}
 		\item[$\bullet$]{A hash table to derive the dentry object associated with a given filename and  given directory quickly}
-		\item[$\bullet$]{}
-		\item[$\bullet$]{}
+		\item[$\bullet$]{Stores the dentry objects as follows}
 			\begin{itemize}
-				\item[$-$]{Example: /tmp/tex \newline tmp and vi are files, both represented by the inode.}
+				\item[$-$]{All the "unused" dentries are included in a doubly linked LRU list sorted by time of insertion}
+				\item[$-$]{Each "in use" dentry object is inserted into a list specified by the i\_dentry field of the correspondig inode object. The dentry object may become "negative" when the last hard link to the corresponding file is deleted.}
+				\item[$-$]{A hash table to quicky resolve the association between a given path and dentry object}
 			\end{itemize}
-		\item[$\bullet$]{}
 	\end{itemize}
+\end{frame}
 
-%--- Dentry cache---------------------------------%
+\subsubsection{Hard link vs Simbolic link}
 
-\subsection{file}
+\begin{frame}{Hard link vs Simbolic link}
+	\begin{itemize}[<+->]
+		\item[$\bullet$]{Hard link is a directory entry that associates a name with a file on a filesystem}
+			\begin{itemize}
+				\item[$-$]{Multiple hard link to be created for the same file}
+				\item[$-$]{Aliasing effect}
+				\item[$-$]{If target is moved, renamed or deleted, any hard link continues to work}
+				\item[$-$]{Cannot links directories}
+				\item[$-$]{Can only refer to data that exists on the same filesystem}
+			\end{itemize}
 
-\section{Hard link x Simbolic link}
+		\item[$\bullet$]{Soft link is a special type of file that contains a reference to another file or directory in the form of an absolute or relative path.}
+			\begin{itemize}
+				\item[$-$]{Similiar shortcut}
+				\item[$-$]{Contains a text string that is interpreted and followed by the OS as a path to another file or directory}
+				\item[$-$]{If a simbolic link deleted, its target remains unaffected}
+				\item[$-$]{If target is moved, renamed or deleted, any simbolic link doesn't work}
+				\item[$-$]{Can create links between directories}
+				\item[$-$]{Can cross filesystem boundaries}
+			\end{itemize}
+
+	\end{itemize}
+\end{frame}
+
+
+\subsection{file\_object}
+
+\begin{frame}{file\_object}
+	
+	\center{\includegraphics[scale=0.40]{img/file.png}}
+	
+\end{frame}
+
+\begin{frame}{file\_object}
+	\begin{itemize}[<+->]
+		\item[$\bullet$]{Describes how a process interacts with a file it has opened}
+		\item[$\bullet$]{Creates when the file is opened}
+		\item[$\bullet$]{Represents the file loaded into memory}
+		\item[$\bullet$]{The file can be associated for many file objects}
+
+		\item[$\bullet$]{Defines file atributes}
+			\begin{itemize}
+				\item[$-$]{f\_list: Pointers for generic file}
+				\item[$-$]{f\_dentry: Dentry object associated with the file}
+				\item[$-$]{f\_count: File object's reference counter}
+				\item[$-$]{f\_pos: Current file offset(file pointer)}
+			\end{itemize}
+		\item[$\bullet$]{Defines file\_operations}
+			\begin{itemize}
+				\item[$-$]{llseek(file, offset, origin)}
+				\item[$-$]{read(file, buf, count, offset)}
+				\item[$-$]{write(file, buf, count, offset)}
+				\item[$-$]{open(inode, file)}
+			\end{itemize}
+	\end{itemize}
+\end{frame}
 
 \section{Operations detailed}
 
@@ -358,8 +437,6 @@ MC806 - Operational System Topics\\}
 	\center{\includegraphics[scale=0.4]{img/mount_act.png}}
 	
 \end{frame}
-
-\subsection{Read (a file)}
 
 %--- FUSE ---------------------------------%
 
@@ -517,8 +594,6 @@ MC806 - Operational System Topics\\}
 	\let\thefootnote\relax\footnotetext{Source: FUSE Kernel Operations, Vikas Gera, 2006}
 	
 \end{frame}
-
-\subsection{Comparission between FUSE and kernel fs implementations}
 
 %--- obrigado-------------------------------------%
 
