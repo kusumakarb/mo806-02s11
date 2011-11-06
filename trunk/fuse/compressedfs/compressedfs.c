@@ -163,20 +163,32 @@ static int set_compression_type(char *optarg)
    return success;
 }
 
-static int parse(int *argc, char **argv[])
+static int parse(int *argc, char *argv[])
 {
    int hasbs; //backstore
    int hastype; // algorithm type
    int success;
-   int isparam;
    int opt;
+   char* ag;
    char **newargv;
+   int newargc;
+   int skipnext;
 
    cinfo.bs_path = NULL;
    hasbs = hastype = 0;
    success = 1;
 
-   while ( success && (opt = getopt(*argc, *argv, "b:t:") ) != -1) 
+   newargv = (char**)malloc(sizeof(char*)**argc);
+   newargc = 1;
+
+   // disable getopt errors
+   opterr = 0;
+
+   // getopt changes argv order, let's save it
+   for (opt = 0; opt < *argc; opt++)
+      newargv[opt] = argv[opt];
+
+   while ( success && (opt = getopt(*argc, argv, "b:t:") ) != -1) 
    {
       switch (opt) 
       {
@@ -194,7 +206,7 @@ static int parse(int *argc, char **argv[])
             break;
 
          default:
-            success = 0;
+            // maybe fuse parameters
             break;
       }
    }
@@ -213,10 +225,50 @@ static int parse(int *argc, char **argv[])
 
    if (success)
    {
-      newargv = (char**)malloc(sizeof(char*)**argc);
-      isparam = 0;
 
-      // TODO remove parameters
+      // getopt has changed argv order, let's restore it
+      for (opt = 0; opt < *argc; opt++)
+         argv[opt] = newargv[opt];
+
+      skipnext = 0;
+
+      // getopt is for shot options only, let's copy all other args
+      for (opt = 1; opt < *argc; opt++)
+      {
+         if (skipnext)
+         {
+            skipnext = 0;
+            continue;
+         }
+
+         ag = argv[opt];
+
+         // choose whether or not to skip this arg
+         switch (strlen(ag))
+         {
+            case 0:
+               continue;
+            case 1:
+               if (ag[0] == '-')
+                  continue;
+               break;
+            default: // >= 2
+               if (ag[0] == '-' && ( ag[1] == 'b' || ag[1] == 't') )
+               {
+                  skipnext = 1;
+                  continue;                  
+               }
+               break;
+         }
+
+         // copy
+         newargv[newargc++] = argv[opt];
+      }
+      
+      // copy back to the pointer
+      *argc = newargc;
+      for (opt = 0; opt < newargc; opt++)
+         argv[opt] = newargv[opt];
 
       free(newargv);
    }
@@ -238,9 +290,11 @@ int main(int argc, char *argv[])
    int success;
 
    // parse own arguments
-   if (parse(&argc, &argv))
+   if (parse(&argc, argv))
+   {
        // fuse will parse mount options
        success = fuse_main(argc, argv, &compressionfs_oper, NULL);
+   }
    else
       success = -1;
    
