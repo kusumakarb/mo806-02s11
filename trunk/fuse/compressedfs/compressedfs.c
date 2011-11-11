@@ -60,6 +60,9 @@ static int compressionfs_readdir(const char *path, void *buf, fuse_fill_dir_t fi
    while ( ( dir = readdir(dirp) ) != NULL )
       filler(buf, dir->d_name, NULL, dir->d_off);
 
+   if (closedir(dirp) == -1)
+      return -errno;
+
    if (errno != 0)
       return -errno;
 
@@ -88,6 +91,9 @@ static int compressionfs_create(const char *path, mode_t mode, struct fuse_file_
    int fd;
    BPATH(path);
 
+#ifdef DEBUG
+   fprintf(stderr, "Criando novo arquivo: %s\n", BP);
+#endif
    // open file on backstore
    fd = open(BP, fi->flags, mode);
 
@@ -271,7 +277,7 @@ static int parse(int *argc, char *argv[])
             else
             {
                getcwd(pwd, 256);
-               strcpy(pwd + strlen(pwd), "/");
+               strcat(pwd, "/");
             }
 
             cinfo.bs_len = strlen(optarg) + strlen(pwd);
