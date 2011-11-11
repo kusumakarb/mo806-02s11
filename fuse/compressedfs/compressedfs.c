@@ -9,6 +9,8 @@
  **/
 
 #include "compressedfs.h"
+#include "cps_dummy.h"
+
 
 #define BP bp
 #define BPATH(PATH) char BP[DEFAULT_PATH_SIZE]; get_bs_path(PATH, BP);
@@ -34,7 +36,11 @@ char* get_bs_path(const char* path, char *p)
 static int compressionfs_getattr(const char *path, struct stat *stbuf)
 {
    BPATH(path); 
-   return stat(BP, stbuf);
+
+   if (!stat(BP, stbuf))
+      return 0;
+   else
+      return -errno;
 }
   
 static int compressionfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
@@ -47,7 +53,7 @@ static int compressionfs_readdir(const char *path, void *buf, fuse_fill_dir_t fi
    dirp = opendir(BP);
 
    if (!dirp)
-      return errno;
+      return -errno;
 
    errno = 0;
 
@@ -55,59 +61,116 @@ static int compressionfs_readdir(const char *path, void *buf, fuse_fill_dir_t fi
       filler(buf, dir->d_name, NULL, dir->d_off);
 
    if (errno != 0)
-      return errno;
+      return -errno;
 
    return 0;
 }
   
 static int compressionfs_open(const char *path, struct fuse_file_info *fi)
 {
-   // things start to get messy here
-   // if we open the file on backstore the filesystem userspace process
-   // will keep the file open, not the user process (using this fs)
-   // there is a limit for open files and keeping too many files open
-   // can get really messy
-   // what we do is:
-   // * verify if user can open the file
-   // * keep metadata about file for fast access - this should be returned
-   // to fuse and we should keep a reference on some list to be able to
-   // free it, if the user process happens to die unexpectedly
-
-   /** TODO **/
-
+   int fd;
    BPATH(path);
+
+   // open file on backstore
+   fd = open(BP, fi->flags, 0640);
+
+   if (fd == -1)
+      return -errno;
+
+   // and keeps it on fuse special structure
+   fi->fh = fd;
+
    return 0;
 }
-  
+
+static int compressionfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
+{
+   int fd;
+   BPATH(path);
+
+   // open file on backstore
+   fd = open(BP, fi->flags, mode);
+
+   if (fd == -1)
+      return -errno;
+
+   // and keeps it on fuse special structure
+   fi->fh = fd;
+
+   return 0;
+}
+ 
+static int compressionfs_release(const char *path, struct fuse_file_info *fi)
+{
+   if (close(fi->fh))
+      return 0;
+
+   return -errno;
+}
+ 
 static int compressionfs_read(const char *path, char *buf, size_t size, off_t offset,
                       struct fuse_file_info *fi)
 {
-   return 0;
+   int n;
+
+   n = pread(fi->fh, buf, size, offset);
+
+   if (n == -1)
+      return -errno;
+
+   return n;
 }
 
 static int compressionfs_write(const char* path, const char* buf, size_t size, off_t offset,
                        struct fuse_file_info *fi)
 {
-   return size;
+   int n;
+
+   n = pwrite(fi->fh, buf, size, offset);
+
+   if (n == -1)
+      return -errno;
+   
+   return n;
 }
 
 static int compressionfs_mknod(const char * path, mode_t mode, dev_t dev)
 {
+   BPATH(path);
+
+   if (mknod(BP, mode, dev) == -1)
+      return -errno;
+
    return 0;
 }
 
 static int compressionfs_mkdir(const char * path, mode_t mode)
 {
+   BPATH(path);
+
+   if (mkdir(BP, mode) == -1)
+      return -errno;
+
    return 0;
 }
 
 static int compressionfs_unlink(const char* path)
 {
+   BPATH(path);
+
+   if (unlink(BP) == -1)
+      return -errno;
+
    return 0;
 }
 
 static int compressionfs_rmdir(const char* path)
 {
+   BPATH(path);
+
+   if (rmdir(BP) == -1)
+      return -errno;
+
    return 0;
 }
 
@@ -130,6 +193,8 @@ static struct fuse_operations compressionfs_oper = {
    .getattr   = compressionfs_getattr,
    .readdir = compressionfs_readdir,
    .open   = compressionfs_open,
+   .create = compressionfs_create,
+   .release = compressionfs_release,
    .read   = compressionfs_read,
    .write = compressionfs_write,
    .mknod = compressionfs_mknod,
@@ -146,12 +211,14 @@ static void print_usage()
 static int set_compression_type(char *optarg)
 {
    int success;
+   struct compression_operations* opt;
 
    success = 1;
+   opt = &cinfo.opt;
 
-   if (!strcmp(optarg, DEFAULT_COMPRESSION_TYPE))
+   if (!strcmp(optarg, DUMMY_NAME))
    {
-
+      dummy_init(opt);
    }
    else
    {
@@ -173,6 +240,7 @@ static int parse(int *argc, char *argv[])
    char **newargv;
    int newargc;
    int skipnext;
+   char pwd[256];
 
    cinfo.bs_path = NULL;
    hasbs = hastype = 0;
@@ -195,9 +263,22 @@ static int parse(int *argc, char *argv[])
          // backstore path
          case 'b':
             hasbs = 1;
-            cinfo.bs_len = strlen(optarg);
+
+            if (optarg[0] == '/')
+            {
+               pwd[0] = '\0';
+            }
+            else
+            {
+               getcwd(pwd, 256);
+               strcpy(pwd + strlen(pwd), "/");
+            }
+
+            cinfo.bs_len = strlen(optarg) + strlen(pwd);
             cinfo.bs_path = (char*)malloc(sizeof(char)*cinfo.bs_len);
-            strcpy(cinfo.bs_path, optarg);
+            strcpy(cinfo.bs_path, pwd);
+            strcat(cinfo.bs_path, optarg);
+
             break;
 
          case 't':
@@ -214,7 +295,7 @@ static int parse(int *argc, char *argv[])
    if (!hastype)
    {
       fprintf(stderr, "Using default compression type.\n");
-      success = set_compression_type(DEFAULT_COMPRESSION_TYPE);
+      success = set_compression_type(DUMMY_NAME);
    }
 
    if (!hasbs)
@@ -292,6 +373,8 @@ int main(int argc, char *argv[])
    // parse own arguments
    if (parse(&argc, argv))
    {
+      puts(cinfo.bs_path);
+
        // fuse will parse mount options
        success = fuse_main(argc, argv, &compressionfs_oper, NULL);
    }
