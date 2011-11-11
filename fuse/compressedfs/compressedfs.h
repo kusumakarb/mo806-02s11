@@ -16,6 +16,8 @@
 #define DEFAULT_STRING_SIZE 64
 #define DEFAULT_PATH_SIZE   128
 
+#define DEBUG 
+
 #include <sys/types.h>
 #include <fuse.h>  
 #include <stdio.h>
