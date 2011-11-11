@@ -9,14 +9,12 @@
  **/
 
 #ifndef __COMRPESSED_FS_H__
-#define __COMPRESSED_FS_H__
+#define __COMRPESSED_FS_H__
 
 #define FUSE_USE_VERSION  26
    
 #define DEFAULT_STRING_SIZE 64
 #define DEFAULT_PATH_SIZE   128
-#define DEFAULT_COMPRESSION_TYPE "zip"
-
 
 #include <sys/types.h>
 #include <fuse.h>  
