@@ -286,7 +286,8 @@ macaco_t* new_macaco(int sentido)
       }
 
       m->id = i;
-      color = ((++color)%7)+1;
+      color++;
+      color = (color%7)+1;
       m->color = color;
    )
 
