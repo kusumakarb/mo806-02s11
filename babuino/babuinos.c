@@ -243,7 +243,6 @@ void* babuino(void* sen)
    // direction
    int s;
    int id_macaco;
-   int entrou_corda;
    sem_t* sem;
 
    s = (int)sen;
@@ -319,6 +318,7 @@ int main(int argn, char** argv)
       // random direction
       s = random() > RAND_MAX * CHANCE_DIR;
       pthread_create(&t[i], NULL, babuino, (int*)s);
+      sleep( (int) ( 5.0 * random() / RAND_MAX ) );
    }
 
    // wait for threads to finish
