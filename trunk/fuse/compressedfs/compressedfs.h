@@ -16,9 +16,15 @@
 #define DEFAULT_STRING_SIZE 64
 #define DEFAULT_PATH_SIZE   128
 
+// usual files cannot end with SPECIAL_EXT, those are reserved for fs
+// special operations
+#define SPECIAL_EXT "compfs"
+
 #define DEBUG 
 
+#include <sys/time.h>
 #include <sys/types.h>
+#include <attr/xattr.h>
 #include <fuse.h>  
 #include <stdio.h>
 #include <string.h>
@@ -27,6 +33,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <dirent.h>
+
 
 struct compression_operations
 {

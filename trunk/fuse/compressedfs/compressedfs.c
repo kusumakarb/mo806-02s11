@@ -18,14 +18,30 @@
 struct compression_info cinfo;
 
 /**
+   Returns 0 if path is not a special fs file
+ **/
+int special_file(const char *path)
+{
+   char *c;
+
+   c = strrchr(path, '.');
+
+   return c != NULL && strcmp(c+1, SPECIAL_EXT) == 0;
+}
+
+/**
    get corresponding path on backstore. stores it on p
    p should be a buffer with at least DEFAULT_PATH_SIZE bytes
  **/
 char* get_bs_path(const char* path, char *p)
 {
    if (path == NULL || path[0] != '/' || 
+       special_file(path) ||
        cinfo.bs_len + strlen(path) > DEFAULT_PATH_SIZE)
+   {
+      p[0] = '\0';
       return NULL;
+   }
 
    strcpy(p, cinfo.bs_path);
    strcat(p, path + 1);
@@ -58,7 +74,11 @@ static int compressionfs_readdir(const char *path, void *buf, fuse_fill_dir_t fi
    errno = 0;
 
    while ( ( dir = readdir(dirp) ) != NULL )
-      filler(buf, dir->d_name, NULL, dir->d_off);
+   {
+      /* only list files that are not special */
+      if (!special_file(dir->d_name))
+         filler(buf, dir->d_name, NULL, 0);
+   }
 
    if (closedir(dirp) == -1)
       return -errno;
@@ -91,11 +111,8 @@ static int compressionfs_create(const char *path, mode_t mode, struct fuse_file_
    int fd;
    BPATH(path);
 
-#ifdef DEBUG
-   fprintf(stderr, "Criando novo arquivo: %s\n", BP);
-#endif
    // open file on backstore
-   fd = open(BP, fi->flags, mode);
+   fd = creat(BP, mode);
 
    if (fd == -1)
       return -errno;
@@ -180,6 +197,63 @@ static int compressionfs_rmdir(const char* path)
    return 0;
 }
 
+static int compressionfs_setxattr(const char* path, const char* name, const char* value,
+                                  size_t size, int flags)
+{
+   int r;
+
+   BPATH(path);
+
+   r = setxattr(BP, name, value, size, flags);
+
+   if (!r)
+      r = -errno;
+
+   return r;
+}
+
+static int compressionfs_utime(const char* path, struct utimbuf *tv)
+{
+   int r;
+
+   BPATH(path);
+
+   r = utime(BP, tv);
+
+   if (!r)
+      r = -errno;
+
+   return r;
+}
+
+static int compressionfs_truncate(const char* path, off_t offset)
+{
+   int r;
+
+   BPATH(path);
+
+   r = truncate(BP, offset);
+
+   if (!r)
+      r = -errno;
+
+   return r;
+}
+
+static int compressionfs_chmod(const char* path, mode_t mode)
+{
+   int r;
+
+   BPATH(path);
+
+   r = chmod(BP, mode);
+
+   if (!r)
+      r = -errno;
+
+   return r;
+}
+
 static void* compressionfs_init(struct fuse_conn_info *conn)
 {
    return NULL;
@@ -207,6 +281,10 @@ static struct fuse_operations compressionfs_oper = {
    .mkdir = compressionfs_mkdir,
    .unlink = compressionfs_unlink,
    .rmdir = compressionfs_rmdir,
+   .setxattr = compressionfs_setxattr,
+   .utime = compressionfs_utime,
+   .truncate = compressionfs_truncate,
+   .chmod = compressionfs_chmod,
 };
 
 static void print_usage()
