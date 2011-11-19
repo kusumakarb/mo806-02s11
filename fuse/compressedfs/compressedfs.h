@@ -33,7 +33,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <pthread.h>
 
+#define GET_FD(FI) ((struct cfile*)FI->fh)->fd
 
 struct compression_operations
 {
@@ -45,6 +47,16 @@ struct compression_operations
    void* (*decompress) (void*,size_t);
 };
 
+struct cfile
+{
+   int fd;
+   int count;
+   
+   pthread_mutex_t lock;
+
+   struct cfile* next;
+};
+
 struct compression_info
 {
    /* compression operations */
@@ -53,6 +65,9 @@ struct compression_info
    char* bs_path;
    /* strlen(bs_path) */
    size_t bs_len;
+
+   struct cfile* ftable;
+   pthread_mutex_t lock;
 };
 
 

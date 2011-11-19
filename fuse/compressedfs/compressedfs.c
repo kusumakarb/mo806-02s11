@@ -49,6 +49,42 @@ char* get_bs_path(const char* path, char *p)
    return p;
 }
 
+struct cfile* new_cfile(int fd, int count)
+{
+   struct cfile* f;
+   struct cfile* n;
+
+   f = (struct cfile*)malloc(sizeof(struct cfile));
+   f->fd = fd;
+   f->count = count;
+   f->next = NULL;
+
+   pthread_mutex_init(&f->lock, NULL);
+
+   pthread_mutex_lock(&cinfo.lock);
+
+   n = cinfo.ftable;
+
+   while ( n->next != NULL )
+      n = n->next;
+
+   n->next = f;
+
+   pthread_mutex_unlock(&cinfo.lock);
+
+   return f;
+}
+
+void free_cfile(struct cfile* f)
+{
+   if (!f)
+      return;
+
+   pthread_mutex_destroy(&f->lock);
+
+   free(f);
+}
+
 static int compressionfs_getattr(const char *path, struct stat *stbuf)
 {
    BPATH(path); 
@@ -92,6 +128,8 @@ static int compressionfs_readdir(const char *path, void *buf, fuse_fill_dir_t fi
 static int compressionfs_open(const char *path, struct fuse_file_info *fi)
 {
    int fd;
+   struct cfile* f;
+
    BPATH(path);
 
    // open file on backstore
@@ -100,8 +138,10 @@ static int compressionfs_open(const char *path, struct fuse_file_info *fi)
    if (fd == -1)
       return -errno;
 
+   f = new_cfile(fd, 1);
+
    // and keeps it on fuse special structure
-   fi->fh = fd;
+   fi->fh = (uint64_t)f;
 
    return 0;
 }
@@ -109,6 +149,7 @@ static int compressionfs_open(const char *path, struct fuse_file_info *fi)
 static int compressionfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
    int fd;
+   struct cfile* f;
    BPATH(path);
 
    // open file on backstore
@@ -117,16 +158,50 @@ static int compressionfs_create(const char *path, mode_t mode, struct fuse_file_
    if (fd == -1)
       return -errno;
 
+   f = new_cfile(fd, 1);
+
    // and keeps it on fuse special structure
-   fi->fh = fd;
+   fi->fh = (uint64_t)f;
 
    return 0;
 }
  
 static int compressionfs_release(const char *path, struct fuse_file_info *fi)
 {
-   if (close(fi->fh))
+   struct cfile* f;
+   struct cfile* n;
+   int count;
+
+   f = (struct cfile*)fi->fh;
+
+   if (close(f->fd))
+   {
+      pthread_mutex_lock(&cinfo.lock);
+
+      pthread_mutex_lock(&f->lock);
+
+      count = --f->count;
+      
+      // remove f from ftable
+      if (count == 0)
+      {
+         n = cinfo.ftable;
+
+         while ( n->next != f )
+            n = n->next;
+
+         n->next = n->next->next;
+      }
+
+      pthread_mutex_unlock(&f->lock);
+
+      pthread_mutex_unlock(&cinfo.lock);
+
+      if (count == 0)
+         free_cfile(f);
+
       return 0;
+   }
 
    return -errno;
 }
@@ -136,7 +211,7 @@ static int compressionfs_read(const char *path, char *buf, size_t size, off_t of
 {
    int n;
 
-   n = pread(fi->fh, buf, size, offset);
+   n = pread(GET_FD(fi), buf, size, offset);
 
    if (n == -1)
       return -errno;
@@ -149,7 +224,7 @@ static int compressionfs_write(const char* path, const char* buf, size_t size, o
 {
    int n;
 
-   n = pwrite(fi->fh, buf, size, offset);
+   n = pwrite(GET_FD(fi), buf, size, offset);
 
    if (n == -1)
       return -errno;
@@ -263,6 +338,8 @@ static void compressionfs_destroy(void* v)
 {
    if (cinfo.bs_path)
       free(cinfo.bs_path);
+
+   pthread_mutex_destroy(&cinfo.lock);
 }
 
   
@@ -436,6 +513,10 @@ static int parse(int *argc, char *argv[])
          argv[opt] = newargv[opt];
 
       free(newargv);
+
+      pthread_mutex_init(&cinfo.lock, NULL);
+      cinfo.ftable = (struct cfile*)malloc(sizeof(struct cfile));
+      cinfo.ftable->next = NULL;
    }
    else
    {
