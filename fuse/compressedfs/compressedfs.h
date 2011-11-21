@@ -24,7 +24,7 @@
 
 #include <sys/time.h>
 #include <sys/types.h>
-#include <attr/xattr.h>
+/*#include <attr/xattr.h>*/
 #include <fuse.h>  
 #include <stdio.h>
 #include <string.h>
