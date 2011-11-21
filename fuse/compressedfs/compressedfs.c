@@ -1,6 +1,6 @@
 /**
 
-   compressed, FUSE implementation
+   compressedfs, FUSE implementation
    This is free software, distributed without any warranties.
    Use at your own risk.
    Andre Esteve <andre.esteve@students.ic.unicamp.br>
@@ -9,11 +9,11 @@
  **/
 
 #include "compressedfs.h"
-#include "cps_dummy.h"
-
 
 #define BP bp
 #define BPATH(PATH) char BP[DEFAULT_PATH_SIZE]; get_bs_path(PATH, BP);
+#define GET_FD(FI) ((struct cfile*)FI->fh)->fd
+#define IS_NULL(S) S[0] == '\0'
 
 struct compression_info cinfo;
 
@@ -49,17 +49,54 @@ char* get_bs_path(const char* path, char *p)
    return p;
 }
 
-struct cfile* new_cfile(int fd, int count)
+/**
+   searches for already open file for path
+   returns NULL if it's not open
+ **/
+struct cfile* get_cfile(char* path)
+{
+   struct cfile* f;
+
+   pthread_mutex_lock(&cinfo.lock);
+
+   for ( f = cinfo.ftable->next; f != NULL; f = f->next )
+      if ( !strcmp(f->path, path) ) break;
+
+   if (f)
+   {
+      pthread_mutex_lock(&f->lock);      
+
+      f->count++;
+
+      pthread_mutex_unlock(&f->lock);      
+   }
+
+   pthread_mutex_unlock(&cinfo.lock);
+
+   return f;
+}
+
+struct cfile* new_cfile(int fd, int count, int compressed, int open_flags, 
+                        mode_t mode, const char* path)
 {
    struct cfile* f;
    struct cfile* n;
+   pthread_mutexattr_t mattr;
 
    f = (struct cfile*)malloc(sizeof(struct cfile));
    f->fd = fd;
    f->count = count;
+   f->compressed = compressed;
+   f->oflag = open_flags;
+   f->mode = mode;
    f->next = NULL;
 
-   pthread_mutex_init(&f->lock, NULL);
+   strcpy(f->path, path);
+
+   pthread_mutexattr_init(&mattr);
+   pthread_mutexattr_settype(&mattr, PTHREAD_MUTEX_RECURSIVE_NP);
+
+   pthread_mutex_init(&f->lock, &mattr);
 
    pthread_mutex_lock(&cinfo.lock);
 
@@ -84,6 +121,142 @@ void free_cfile(struct cfile* f)
 
    free(f);
 }
+
+/**
+   returns 0 on sucess and errno on failure
+ **/
+int compress(struct cfile* f)
+{
+   // f->fd is a working uncompressed file at f->path
+   char dpath[DEFAULT_PATH_SIZE];
+   int fd;
+   int r;
+   BPATH(f->path);
+
+   pthread_mutex_lock(&f->lock);
+
+   if (!f->compressed)
+   {
+      // concat special ext to path
+      strcpy(dpath, BP);
+      strcat(dpath, "."SPECIAL_EXT);
+
+      // open working file for compression
+      fd = creat(dpath, 0600);
+
+      if (fd == -1)
+         return errno;
+
+      if (cinfo.opt.compress(f->fd, fd) != 0)
+      {
+         r = errno;
+
+         // compression failled
+         // undo work
+         close(fd);
+         unlink(BP);
+      }
+      else
+      {
+         // compression successful
+         r = 0;
+         f->compressed = 1;
+
+         // remove decompressed file
+         close(f->fd);
+         unlink(f->path);
+
+         // move compressed file to path
+         close(fd);
+         rename(dpath, f->path);
+
+         // reopen compressed file
+         f->fd = open(f->path, f->oflag, f->mode);
+
+         // critical error
+         if (f->fd == -1)
+         {
+            // by now we just ignore it
+            // this should not happen
+         }
+      }
+   }
+
+   pthread_mutex_unlock(&f->lock);
+
+   return r;
+}
+
+int decompress(struct cfile* f)
+{
+   // f->fd is the compressed file at path
+   // we have to decompress it and change fd so any operation over fd
+   // goes to the decompressed file
+
+   char dpath[DEFAULT_PATH_SIZE];
+   int fd;
+   int r;
+   BPATH(f->path);
+
+   pthread_mutex_lock(&f->lock);
+
+   if (f->compressed)
+   {
+      // concat special ext to path
+      strcpy(dpath, BP);
+      strcat(dpath, "."SPECIAL_EXT);
+
+      // open working file for decompression
+      fd = creat(dpath, 0600);
+
+      if (fd == -1)
+         return errno;
+
+      if (cinfo.opt.decompress(f->fd, fd) != 0)
+      {
+         r = errno;
+
+         // decompression failled
+         // undo work
+         close(fd);
+         unlink(BP);
+      }
+      else
+      {
+         // decompression successful
+         r = 0;
+         f->compressed = 0;
+
+         // remove compressed file
+         close(f->fd);
+         unlink(f->path);
+
+         // move decompressed file to path
+         close(fd);
+         rename(dpath, f->path);
+
+         // reopen decompressed file
+         f->fd = open(f->path, f->oflag, f->mode);
+
+         // critical error
+         if (f->fd == -1)
+         {
+            // by now we just ignore it
+            // this should not happen
+         }
+      }
+   }
+
+   pthread_mutex_unlock(&f->lock);
+
+   return r;
+}
+
+/*
+  ===============================
+  FUSE OPERATIONS IMPLEMENTATION
+  ===============================
+ */
 
 static int compressionfs_getattr(const char *path, struct stat *stbuf)
 {
@@ -129,36 +302,76 @@ static int compressionfs_open(const char *path, struct fuse_file_info *fi)
 {
    int fd;
    struct cfile* f;
-
+   mode_t mode;
+   int r;
    BPATH(path);
 
-   // open file on backstore
-   fd = open(BP, fi->flags, 0640);
+   if (IS_NULL(BP))
+      return -EACCES;
 
-   if (fd == -1)
-      return -errno;
+   r = 0;
+   mode = 0640;
 
-   f = new_cfile(fd, 1);
+   // lock required, the same file may be opened at the same time
+   pthread_mutex_lock(&cinfo.open_lock);
 
-   // and keeps it on fuse special structure
-   fi->fh = (uint64_t)f;
+   // veifiry if it's openned already
+   f = get_cfile(BP);
 
-   return 0;
+   // if it's null, then it's not openned yet   
+   if (!f)
+   {
+      // open file on backstore
+      fd = open(BP, fi->flags, mode);
+
+      if (fd == -1)
+         r = -errno;
+      else
+         f = new_cfile(fd, 1, 1, fi->flags, mode, path);
+   }
+
+   pthread_mutex_unlock(&cinfo.open_lock);
+
+   // file's open, but compressed
+   if (r == 0 && f->compressed)
+   {
+      if (decompress(f))
+      {
+         // decompression failled
+         close(f->fd);
+         free_cfile(f);
+         
+         // what the heck...
+         r = -EIO;
+      }
+   }
+
+   // on success, keeps file pointer on fuse special structure
+   if (r == 0)
+      fi->fh = (uint64_t)f;
+
+   return r;
 }
 
 static int compressionfs_create(const char *path, mode_t mode, struct fuse_file_info *fi)
 {
    int fd;
    struct cfile* f;
+   int flags;
    BPATH(path);
 
+   flags = O_CREAT | O_WRONLY;
+
    // open file on backstore
-   fd = creat(BP, mode);
+   // no lock needed, we are safe because open won't create a file twice
+   fd = open(BP, flags, mode);
 
    if (fd == -1)
       return -errno;
 
-   f = new_cfile(fd, 1);
+   // new file was created
+
+   f = new_cfile(fd, 1, 0, flags, mode, path);
 
    // and keeps it on fuse special structure
    fi->fh = (uint64_t)f;
@@ -171,39 +384,52 @@ static int compressionfs_release(const char *path, struct fuse_file_info *fi)
    struct cfile* f;
    struct cfile* n;
    int count;
+   int r;
 
    f = (struct cfile*)fi->fh;
+   r = 0;
 
-   if (close(f->fd))
+   pthread_mutex_lock(&f->lock);
+
+   count = --f->count;
+
+   if (count == 0)
    {
-      pthread_mutex_lock(&cinfo.lock);
+      // ok, we are the last one using this file
+      // lets compress it and close it
 
-      pthread_mutex_lock(&f->lock);
-
-      count = --f->count;
-      
-      // remove f from ftable
-      if (count == 0)
+      // compress file on disk
+      if (compress(f) != 0)
       {
-         n = cinfo.ftable;
-
-         while ( n->next != f )
-            n = n->next;
-
-         n->next = n->next->next;
+         // compression failled        
+         // what the heck...
+         r = -EIO;
       }
 
-      pthread_mutex_unlock(&f->lock);
+      // close file
+      if (r == 0 && close(f->fd) == -1)
+         r = -errno;
 
+      // can't do much more
+
+      pthread_mutex_lock(&cinfo.lock);
+      // remove f from ftable
+      n = cinfo.ftable;
+
+      while ( n->next != f )
+         n = n->next;
+
+      n->next = n->next->next;
+      // finished ftable removal
       pthread_mutex_unlock(&cinfo.lock);
-
-      if (count == 0)
-         free_cfile(f);
-
-      return 0;
    }
 
-   return -errno;
+   pthread_mutex_unlock(&f->lock);
+
+   if (count == 0)
+      free_cfile(f);
+      
+   return r;
 }
  
 static int compressionfs_read(const char *path, char *buf, size_t size, off_t offset,
@@ -343,6 +569,7 @@ static void compressionfs_destroy(void* v)
       free(cinfo.bs_path);
 
    pthread_mutex_destroy(&cinfo.lock);
+   pthread_mutex_destroy(&cinfo.open_lock);
 }
 
   
@@ -405,6 +632,7 @@ static int parse(int *argc, char *argv[])
    int newargc;
    int skipnext;
    char pwd[256];
+   pthread_mutexattr_t mattr;
 
    cinfo.bs_path = NULL;
    hasbs = hastype = 0;
@@ -516,8 +744,16 @@ static int parse(int *argc, char *argv[])
          argv[opt] = newargv[opt];
 
       free(newargv);
+    
+      // init recursive lock
+      pthread_mutexattr_init(&mattr);
+      pthread_mutexattr_settype(&mattr, PTHREAD_MUTEX_RECURSIVE_NP);
 
-      pthread_mutex_init(&cinfo.lock, NULL);
+      pthread_mutex_init(&cinfo.lock, &mattr);
+      pthread_mutex_init(&cinfo.open_lock, &mattr);
+
+      pthread_mutexattr_destroy(&mattr);
+
       cinfo.ftable = (struct cfile*)malloc(sizeof(struct cfile));
       cinfo.ftable->next = NULL;
    }

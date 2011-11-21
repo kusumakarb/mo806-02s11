@@ -35,23 +35,38 @@
 #include <dirent.h>
 #include <pthread.h>
 
-#define GET_FD(FI) ((struct cfile*)FI->fh)->fd
-
 struct compression_operations
 {
    /* compression algorithm name */
    char cname[DEFAULT_STRING_SIZE];
 
    /* compression handlers  */
-   void* (*compress) (void*,size_t);
-   void* (*decompress) (void*,size_t);
+   /**
+      void compress(int infd, int oufd);
+      compress data from input fd to output fd
+      return 0 on success
+      return != 0 on failue and set errno
+    **/
+   int (*compress) (int, int);
+   /**
+      void decompress(int infd, int oufd);
+      decompress data from input fd to output fd
+      return 0 on success
+      return != 0 on failue and set errno
+    **/
+   int (*decompress) (int, int);
 };
 
 struct cfile
 {
    int fd;
    int count;
+   char path[DEFAULT_PATH_SIZE];
+   int compressed;
    
+   int oflag; // open flags
+   mode_t mode;
+
    pthread_mutex_t lock;
 
    struct cfile* next;
@@ -68,7 +83,23 @@ struct compression_info
 
    struct cfile* ftable;
    pthread_mutex_t lock;
+   pthread_mutex_t open_lock;
 };
 
+
+
+
+/*
+  ===============================
+   SUPPORTED COMPRESSION METHODS
+  ===============================
+*/
+#include "cps_dummy.h"
+
+/*
+   **************************
+   **DO NOT CODE BELOW HERE**
+   **************************
+ */
 
 #endif /*__COMRPESSED_FS_H__*/

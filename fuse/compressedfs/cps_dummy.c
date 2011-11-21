@@ -6,14 +6,14 @@
 
  **/
 
-static void* dummy_compress(void* data, size_t size)
+static int dummy_compress(int infd, int outfd)
 {
-   return data;
+   return 0;
 }
 
-static void* dummy_decompress(void* data, size_t size)
+static int dummy_decompress(int infd, int outfd)
 {
-   return data;
+   return 0;
 }
 
 void dummy_init(struct compression_operations* opt)
