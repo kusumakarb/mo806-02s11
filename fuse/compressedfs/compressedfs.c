@@ -122,56 +122,93 @@ void free_cfile(struct cfile* f)
    free(f);
 }
 
-/**
-   returns 0 on sucess and errno on failure
- **/
-int compress(struct cfile* f)
+int main_decmp_cmp(struct cfile*f, int compression)
 {
    // f->fd is a working uncompressed file at f->path
    char dpath[DEFAULT_PATH_SIZE];
    int fd;
+   int infd;
    int r;
+   int work_needed;
+
+   int (*func)(int,int);
+
    BPATH(f->path);
+
+   if (compression)
+      func = cinfo.opt.compress;
+   else
+      func = cinfo.opt.decompress;
 
    pthread_mutex_lock(&f->lock);
 
-   if (!f->compressed)
+   work_needed = ( compression && !f->compressed ) ||
+      ( !compression && f->compressed );
+
+   if (work_needed)
    {
       // concat special ext to path
       strcpy(dpath, BP);
       strcat(dpath, "."SPECIAL_EXT);
 
-      // open working file for compression
+      // open working file for (de)compression
       fd = creat(dpath, 0600);
 
       if (fd == -1)
+      {
+         pthread_mutex_unlock(&f->lock);
          return errno;
+      }
 
-      if (cinfo.opt.compress(f->fd, fd) != 0)
+      // we will need to read from f->fd
+      if ( ( f->oflag & O_WRONLY ) == O_WRONLY)
+      {
+         infd = open(BP, ( f->oflag & ~O_WRONLY ) | O_RDWR);
+
+         if ( infd == -1 )
+         {
+            pthread_mutex_unlock(&f->lock);
+            return errno;
+         }
+      }
+      else
+         infd = f->fd;
+
+      if (func(infd, fd) != 0)
       {
          r = errno;
 
-         // compression failled
+         // (de)compression failled
          // undo work
+
+         if (infd != f->fd)
+            close(infd);
+
          close(fd);
          unlink(BP);
       }
       else
       {
-         // compression successful
+         // (de)compression successful
          r = 0;
-         f->compressed = 1;
+         f->compressed = compression;
 
-         // remove decompressed file
+         // close files
          close(f->fd);
-         unlink(f->path);
 
-         // move compressed file to path
+         if (infd != f->fd)
+            close(infd);
+
          close(fd);
-         rename(dpath, f->path);
 
-         // reopen compressed file
-         f->fd = open(f->path, f->oflag, f->mode);
+         // remove (de)compressed file
+         unlink(BP);
+
+         // move (de)compressed file to path
+         rename(dpath, BP);
+
+         // reopen (de)compressed file
+         f->fd = open(BP, f->oflag, f->mode);
 
          // critical error
          if (f->fd == -1)
@@ -187,69 +224,23 @@ int compress(struct cfile* f)
    return r;
 }
 
+/**
+   returns 0 on sucess and errno on failure
+ **/
+int compress(struct cfile* f)
+{
+   // f->fd is a working uncompressed file at f->path
+
+   return main_decmp_cmp(f, 1);
+}
+
 int decompress(struct cfile* f)
 {
    // f->fd is the compressed file at path
    // we have to decompress it and change fd so any operation over fd
    // goes to the decompressed file
 
-   char dpath[DEFAULT_PATH_SIZE];
-   int fd;
-   int r;
-   BPATH(f->path);
-
-   pthread_mutex_lock(&f->lock);
-
-   if (f->compressed)
-   {
-      // concat special ext to path
-      strcpy(dpath, BP);
-      strcat(dpath, "."SPECIAL_EXT);
-
-      // open working file for decompression
-      fd = creat(dpath, 0600);
-
-      if (fd == -1)
-         return errno;
-
-      if (cinfo.opt.decompress(f->fd, fd) != 0)
-      {
-         r = errno;
-
-         // decompression failled
-         // undo work
-         close(fd);
-         unlink(BP);
-      }
-      else
-      {
-         // decompression successful
-         r = 0;
-         f->compressed = 0;
-
-         // remove compressed file
-         close(f->fd);
-         unlink(f->path);
-
-         // move decompressed file to path
-         close(fd);
-         rename(dpath, f->path);
-
-         // reopen decompressed file
-         f->fd = open(f->path, f->oflag, f->mode);
-
-         // critical error
-         if (f->fd == -1)
-         {
-            // by now we just ignore it
-            // this should not happen
-         }
-      }
-   }
-
-   pthread_mutex_unlock(&f->lock);
-
-   return r;
+   return main_decmp_cmp(f, 0);
 }
 
 /*
@@ -360,11 +351,12 @@ static int compressionfs_create(const char *path, mode_t mode, struct fuse_file_
    int flags;
    BPATH(path);
 
-   flags = O_CREAT | O_WRONLY;
+   flags = O_CREAT | O_RDWR;
+   mode |= 0400; // we must be able to read a file
 
    // open file on backstore
    // no lock needed, we are safe because open won't create a file twice
-   fd = open(BP, flags, mode);
+   fd = open(BP, flags, mode | 0400); 
 
    if (fd == -1)
       return -errno;
@@ -756,6 +748,7 @@ static int parse(int *argc, char *argv[])
 
       cinfo.ftable = (struct cfile*)malloc(sizeof(struct cfile));
       cinfo.ftable->next = NULL;
+      cinfo.ftable->path[0] = '\0';
    }
    else
    {
