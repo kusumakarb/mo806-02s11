@@ -276,13 +276,16 @@ static int compressionfs_setxattr(const char* path, const char* name, const char
                                   size_t size, int flags)
 {
    int r;
-
+/*
    BPATH(path);
 
    r = setxattr(BP, name, value, size, flags);
 
    if (!r)
       r = -errno;
+*/
+
+   r = -ENOSYS;
 
    return r;
 }
@@ -295,7 +298,7 @@ static int compressionfs_utime(const char* path, struct utimbuf *tv)
 
    r = utime(BP, tv);
 
-   if (!r)
+   if (r != 0)
       r = -errno;
 
    return r;
@@ -309,7 +312,7 @@ static int compressionfs_truncate(const char* path, off_t offset)
 
    r = truncate(BP, offset);
 
-   if (!r)
+   if (r != 0)
       r = -errno;
 
    return r;
@@ -323,7 +326,7 @@ static int compressionfs_chmod(const char* path, mode_t mode)
 
    r = chmod(BP, mode);
 
-   if (!r)
+   if (r != 0)
       r = -errno;
 
    return r;
