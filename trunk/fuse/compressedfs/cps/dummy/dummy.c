@@ -1,4 +1,4 @@
-#include "cps_dummy.h"
+#include "dummy.h"
 
 /**
    Dummy compression has a compression rate of 1:1,

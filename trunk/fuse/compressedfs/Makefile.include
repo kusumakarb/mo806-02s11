@@ -1,0 +1,1 @@
+CF = -g -Wall `pkg-config fuse --cflags --libs`
