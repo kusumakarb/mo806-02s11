@@ -96,6 +96,9 @@ struct compression_info
 */
 #include "cps/dummy/dummy.h"
 #include "cps/scz/scz_main.h"
+#include "cps/lzo/lzo_main.h"
+
+#define DEFAULT_COMPRESSION LZO_NAME
 
 /*
    **************************
