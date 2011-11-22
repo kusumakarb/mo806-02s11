@@ -607,6 +607,10 @@ static int set_compression_type(char *optarg)
    {
       scz_init(opt);
    }
+   else if (!strcmp(optarg, LZO_NAME))
+   {
+      minilzo_init(opt);
+   }
    else
    {
       success = 0;
@@ -681,8 +685,8 @@ static int parse(int *argc, char *argv[])
 
    if (!hastype)
    {
-      fprintf(stderr, "Using default compression type.\n");
-      success = set_compression_type(DUMMY_NAME);
+      fprintf(stderr, "Using default compression type (%s).\n", DEFAULT_COMPRESSION);
+      success = set_compression_type(DEFAULT_COMPRESSION);
    }
 
    if (!hasbs)
