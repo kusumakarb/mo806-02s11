@@ -94,7 +94,7 @@ struct compression_info
    SUPPORTED COMPRESSION METHODS
   ===============================
 */
-#include "cps_dummy.h"
+#include "cps/dummy/dummy.h"
 
 /*
    **************************
