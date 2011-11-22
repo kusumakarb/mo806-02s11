@@ -22,11 +22,14 @@
  */
 #define OUT_LEN     (BSIZE + BSIZE / 16 + 64 + 3)
 
-typedef struct block_header
+#define __PACKED __attribute__((__packed__))
+struct block_header
 {
    unsigned char is_compressed;
    unsigned short block_size;
-} header_t;
+} __PACKED;
+
+typedef struct block_header header_t;
 
 /*
   the compressed file is structured as follows:
@@ -68,8 +71,12 @@ static int lzo_compress(int infd, int outfd)
          r = -1;
          break;
       }
-
-      if ( n < in_len )
+      else if ( n == 0 )
+      {
+         // just EOF
+         break;
+      }
+      else if ( n < in_len )
       {
          // this is the last block, change block size
          in_len = n;
@@ -80,6 +87,7 @@ static int lzo_compress(int infd, int outfd)
       {
          errno = EIO;
          r = -1;
+         fprintf(stderr, "Compression error\n");
          break;
       }
 
@@ -88,6 +96,7 @@ static int lzo_compress(int infd, int outfd)
       {
          // can't compress, it's better to stick to original data
          memcpy(out + BLOCK_OFFSET, in, in_len);
+         out_len = in_len;
 
          header.is_compressed = 0;
       }
@@ -149,6 +158,7 @@ static int lzo_decompress(int infd, int outfd)
          {
             r = -1;
             errno = EIO;
+            fprintf(stderr, "Invalid (compressed) block size\n");
             break;
          }
 
@@ -157,6 +167,7 @@ static int lzo_decompress(int infd, int outfd)
          {
             errno = EIO;
             r = -1;
+            fprintf(stderr, "Invalid block data\n");
             break;
          }
       }
@@ -167,10 +178,12 @@ static int lzo_decompress(int infd, int outfd)
 
          out_len = in_len;
 
-         if ( n == in_len )
+         if ( n != in_len )
          {
             r = -1;
             errno = EIO;
+            fprintf(stderr, "Invalid (uncompressed) block size. Expected %u, read %u.\n",
+                    in_len, n);
             break;
          }
       }
@@ -181,6 +194,8 @@ static int lzo_decompress(int infd, int outfd)
          r = -1;
          if (errno == 0)
             errno = EIO;
+
+         fprintf(stderr, "Can't write to output file\n");
 
          break;
       }
