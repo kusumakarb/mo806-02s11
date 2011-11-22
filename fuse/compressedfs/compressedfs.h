@@ -95,6 +95,7 @@ struct compression_info
   ===============================
 */
 #include "cps/dummy/dummy.h"
+#include "cps/scz/scz_main.h"
 
 /*
    **************************
