@@ -1,13 +1,18 @@
-all: scz dummy
+all: scz dummy lzo
 
-.PHONY: dummy
+
 dummy:
 	cd dummy && $(MAKE)
 
-.PHONY: scz
 scz:
 	cd scz && $(MAKE)
+
+lzo:
+	cd lzo && $(MAKE)
 
 clean:
 	cd dummy && $(MAKE) clean
 	cd scz && $(MAKE) clean
+	cd lzo && $(MAKE) clean
+
+.PHONY: dummy scz clean lzo

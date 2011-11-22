@@ -1,7 +1,9 @@
-#include "scz_main.h"
+#include "lzo_main.h"
+#include "minilzo.h"
 
 /**
-   Simple Compression Zip 
+   LZO COMPRESSION
+
  **/
 
 #define BSIZE 2048
@@ -34,20 +36,19 @@ static int cpy(int infd, int outfd)
    return r;
 }
 
-
-static int scz_compress(int infd, int outfd)
+static int lzo_compress(int infd, int outfd)
 {
-   return 0;
+   return cpy(infd, outfd);
 }
 
-static int scz_decompress(int infd, int outfd)
+static int lzo_decompress(int infd, int outfd)
 {
-   return 0;
+   return cpy(infd, outfd);
 }
 
-void scz_init(struct compression_operations* opt)
+void minilzo_init(struct compression_operations* opt)
 {
-   strcpy(opt->cname, DUMMY_NAME);
-   opt->compress = scz_compress;
-   opt->decompress = scz_decompress;
+   strcpy(opt->cname, LZO_NAME);
+   opt->compress = lzo_compress;
+   opt->decompress = lzo_decompress;
 }

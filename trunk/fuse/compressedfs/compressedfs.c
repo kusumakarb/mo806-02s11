@@ -603,12 +603,15 @@ static int set_compression_type(char *optarg)
    {
       dummy_init(opt);
    }
+   else if (!strcmp(optarg, SCZ_NAME))
+   {
+      scz_init(opt);
+   }
    else
    {
       success = 0;
       fprintf(stderr, "Compression type %s not available\n", optarg);
    }
-
 
    return success;
 }
