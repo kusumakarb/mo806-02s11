@@ -32,6 +32,12 @@
 
 #define MIN(A,B,C) if (A<B) C = A; else C = B;
 
+#ifdef _LP64
+typedef long long int bint;
+#else
+typedef long int  bint;
+#endif
+
 static sem_t esquerda;
 static sem_t direita;
 static sem_t corda;
@@ -48,7 +54,21 @@ static volatile int esperando_esq;
 
 void muda_sentido(int sentido, int id_macaco)
 {
+   if (estado_corda == sentido)
+      return;
+
    estado_corda = sentido;
+
+   ANIMACAO
+   (
+      if (estado_corda == LIVRE_ST)
+         printf("### LIVRE    : ESTADO_CORDA\n");
+      else if (estado_corda == ESQ_ST)
+         printf("### ESQUERDA : ESTADO_CORDA\n");
+      else
+         printf("### DIREITA  : ESTADO_CORDA\n");
+   );
+
 #ifndef DEBUG
    desenho_muda_corda(sentido, id_macaco);
 #endif
@@ -56,7 +76,7 @@ void muda_sentido(int sentido, int id_macaco)
 
 int entra_corda(int s, int id_macaco)
 {
-   int p = 5;
+   int p;
    int esperando;
    int pode_seguir;
    sem_t* sem;
@@ -69,16 +89,6 @@ int entra_corda(int s, int id_macaco)
 
    if (estado_corda == LIVRE_ST)
    {
-      ANIMACAO
-      (
-         printf("Primeiro: liberando corda para ");
-
-         if (s == DIR)
-            printf("direita\n");
-         else
-            printf("esquerda\n");
-      )
-
       // I'm the first to get to the rope, let's capture it
       if (s == DIR)
       {
@@ -90,15 +100,17 @@ int entra_corda(int s, int id_macaco)
       {
          muda_sentido(ESQ_ST, id_macaco);
          sem = &esquerda;
-         esperando = esperando_dir;
+         esperando = esperando_esq;
       }
 
       // I can continue
       pode_seguir = 1;
 
-      // and let my budies in
-      MIN(esperando, MAX_CORDA, p);
-      POST_V(sem, p)
+      // and let my budies in, minus 1 because I'm already on the rope
+      MIN(esperando, MAX_CORDA - 1, p);
+      POST_V(sem, p);
+      // note: esperando is always greather than 0, because esperando_[dir|esq]
+      // is reduced only on the next if block
    }
    else if (IS_MY_DIRECTION(s))
    {
@@ -115,6 +127,14 @@ int entra_corda(int s, int id_macaco)
    if (pode_seguir)
    {
       nro_corda++;
+
+      ANIMACAO
+      (
+         if (s == DIR)
+            printf("   >>>  : ENTREI CORDA [BAL. %d; ESQ. %d; DIR: %d]\n", balanco, esperando_esq, esperando_dir);
+         else
+            printf("   <<<  : ENTREI CORDA [BAL. %d; ESQ. %d; DIR: %d]\n", balanco, esperando_esq, esperando_dir);
+      );
 
       if (s == DIR)
       {
@@ -155,8 +175,6 @@ void sai_corda(int s, int id_macaco)
    // Am I the last one?
    if (nro_corda == 0)
    {   
-      ANIMACAO(printf("Ultimo\nEsp_dir: %d\nEsp_esq: %d\nBalanco: %d\n", esperando_dir, esperando_esq, balanco);)
-
       // if right side has used the rope too much and there're babuines on the left side waiting...
       if (balanco > MAX_DIFF && esperando_esq > 0)
       {
@@ -204,48 +222,51 @@ void sai_corda(int s, int id_macaco)
    }
    else
    {
-      // I'm not the last, just let one more in
-      if (s == DIR)
-         sem_post(&direita);
+
+      if ( (s == DIR && esperando_esq > 0 && balanco > MAX_DIFF) ||
+           (s == ESQ && esperando_dir > 0 && balanco > -MAX_DIFF))
+      {
+         // well, we should let the other side play
+      }
       else
-         sem_post(&esquerda);
+      {
+         // I'm not the last, just let one more in
+         if (s == DIR)
+            sem_post(&direita);
+         else
+            sem_post(&esquerda);
+      } 
    }
 
    sem_post(&corda);
 }
 
-void print(int s)
+void do_work(int s)
 {
    sem_wait(&corda);
-
+/*
    ANIMACAO
    (
+      if (s == DIR)
+         printf("DIREITA  : NA CORDA [BAL. %d]\n", balanco);
+      else
+         printf("ESQUERDA : NA CORDA [BAL. %d]\n", balanco);
+    );
+*/
+   sem_post(&corda);
+   
+   sleep( (int) ( 5.0 * random() / RAND_MAX ) );
 
-         if (estado_corda == LIVRE_ST)
-            printf("corda livre - ");
-         else if (estado_corda == ESQ_ST)
-            printf("corda esquerda - ");
-         else
-            printf("corda direita - ");
-
-         if (s == DIR)
-            printf("babuino direita\n");
-         else
-            printf("babuino esquerda\n");
-
-    )
-
-    sem_post(&corda);
 }
 
 void* babuino(void* sen)
 {
    // direction
-   int s;
+   bint s;
    int id_macaco;
    sem_t* sem;
 
-   s = (int)sen;
+   s = (int)(bint)sen;
 
    if (s == ESQ)
       sem = &esquerda;
@@ -260,9 +281,13 @@ void* babuino(void* sen)
       esperando_esq++;
 
    sem_post(&corda);   
+
 #ifndef DEBUG
    id_macaco = desenho_novo_macaco(s);
+#else
+   id_macaco = 0;
 #endif
+
    do
    {
       // I shouldn't overload the rope with my weight
@@ -273,9 +298,7 @@ void* babuino(void* sen)
    } while (!entra_corda(s, id_macaco));
 
    // ** yeap, on the rope! **
-   print(s);
-
-   sleep( (int) ( 5.0 * random() / RAND_MAX ) );
+   do_work(s);
 
    // leaving the rope
    sai_corda(s, id_macaco);
@@ -286,7 +309,7 @@ void* babuino(void* sen)
 int main(int argn, char** argv)
 {
    int i;
-   int s;
+   bint s;
    pthread_t t[THREAD_NUM];
 
 #ifndef DEBUG
@@ -318,7 +341,7 @@ int main(int argn, char** argv)
       // random direction
       s = random() > RAND_MAX * CHANCE_DIR;
       pthread_create(&t[i], NULL, babuino, (int*)s);
-      sleep( (int) ( 5.0 * random() / RAND_MAX ) );
+      //sleep( (int) ( 5.0 * random() / RAND_MAX ) );
    }
 
    // wait for threads to finish

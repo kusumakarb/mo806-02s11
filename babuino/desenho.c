@@ -4,7 +4,7 @@
 
 #define LOCK(X) pthread_mutex_lock(&lock); X pthread_mutex_unlock(&lock);
 
-#define D_SLEEP usleep(500000)
+#define D_SLEEP usleep(00000)
 
 static mapa_t mapa;
 static pthread_mutex_t lock;
