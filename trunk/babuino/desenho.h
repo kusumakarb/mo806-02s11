@@ -16,14 +16,14 @@
 #define SAIU_DIR         6
 #define SAIU_ESQ         7
 
-#define BLACK	0
-#define RED		1
-#define GREEN	2
-#define YELLOW	3
-#define BLUE	4
+#define BLACK	   0
+#define RED		   1
+#define GREEN	   2
+#define YELLOW	   3
+#define BLUE	   4
 #define MAGENTA	5
-#define CYAN	6
-#define WHITE	7
+#define CYAN	   6
+#define WHITE	   7
 
 typedef struct mapa
 {
