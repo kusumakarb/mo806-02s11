@@ -4,7 +4,7 @@
 
 #define LOCK(X) pthread_mutex_lock(&lock); X pthread_mutex_unlock(&lock);
 
-#define D_SLEEP usleep(00000)
+#define D_SLEEP usleep(300000)
 
 static mapa_t mapa;
 static pthread_mutex_t lock;
@@ -290,7 +290,7 @@ macaco_t* new_macaco(int sentido)
       color = (color%7)+1;
       m->color = color;
    )
-
+   
    return m;
 }
 
