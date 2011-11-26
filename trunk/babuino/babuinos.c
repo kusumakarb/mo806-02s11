@@ -11,8 +11,10 @@
 #define CHANCE_DIR 0.5
 #define MAX_CORDA 5
 #define MAX_DIFF 10
-#define MAX_CR_TIME 10000
-#define MAX_CREATION_TIME 5000
+#define MIN_CR_TIME 500
+#define MAX_CR_TIME 1500
+#define MIN_CREATION_TIME 100
+#define MAX_CREATION_TIME 800
 
 #define DIR 0
 #define ESQ 1
@@ -91,10 +93,11 @@ int entra_corda(int s, int id)
 
 #ifndef DEBUG
    desenho_tenta_corda(id);
+   usleep(200000);
 #endif
 
    sem_wait(&corda);
-      
+
    if (estado_corda == LIVRE_ST)
    {
       // I'm the first to get to the rope, let's capture it
@@ -181,13 +184,13 @@ void sai_corda(int s, int id)
 {
    int p;
 
-   sem_wait(&corda);
-
-   nro_corda--;
-
 #ifndef DEBUG
    desenho_sai_corda(id);
 #endif
+
+   sem_wait(&corda);
+   
+   nro_corda--;
 
    ANIMACAO
    (
@@ -279,7 +282,7 @@ void do_work(int s)
 */
    sem_post(&corda);
    
-   usleep( (int) ( MAX_CR_TIME * random() / RAND_MAX ) );
+   usleep(((random() % (MAX_CR_TIME - MIN_CR_TIME)) + MIN_CR_TIME)*1000);
 
 }
 
@@ -295,25 +298,26 @@ void* babuino(void* info)
 
    s = (bint)((int)in.sentido);
 
+
+
    if (s == ESQ)
       sem = &esquerda;
    else
       sem = &direita;
 
    sem_wait(&corda);
-
+   #ifndef DEBUG
+      id = desenho_novo_macaco(s);
+   #else
+      id = (int)in.id;
+   #endif  
+   
    if (s == DIR)
       esperando_dir++;
    else
       esperando_esq++;
-
+      
    sem_post(&corda);   
-
-#ifndef DEBUG
-   id = desenho_novo_macaco(s);
-#else
-   id = (int)in.id;
-#endif
 
    do
    {
@@ -369,9 +373,8 @@ int main(int argn, char** argv)
       info.id = (unsigned short)i;
       // random direction
       info.sentido = (short)(random() > RAND_MAX * CHANCE_DIR);
-      
+      usleep(((random() % (MAX_CREATION_TIME - MIN_CREATION_TIME)) + MIN_CREATION_TIME)*1000);
       pthread_create(&t[i], NULL, babuino, (int*)*((int*)&info));
-      usleep( (int) ( MAX_CREATION_TIME * random() / RAND_MAX ) );
    }
 
    // wait for threads to finish

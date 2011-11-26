@@ -78,21 +78,22 @@ static void move_macaco(macaco_t* m, int x, int y)
    else
       d = ">";
 
+
+   // apaga posicao anterior
+   mvprintw(m->y, m->x, " ");
+   
+   m->x = x;
+   m->y = y;
+   // desenha posicao nova
+   COR
+   (
+      m->color,
+      mvprintw(m->y, m->x, d);
+   )
+   
    LOCK
    (
-      // apaga posicao anterior
-      mvprintw(m->y, m->x, " ");
-      
-      m->x = x;
-      m->y = y;
-      // desenha posicao nova
-      COR
-      (
-         m->color,
-         mvprintw(m->y, m->x, d);
-      )
       refresh();
-
       D_SLEEP;
    )
 }
@@ -272,24 +273,21 @@ macaco_t* new_macaco(int sentido)
    m->estado = sentido;
    m->next = NULL;
 
-   LOCK
-   (
-      if (macacos == NULL)
-         macacos = m;
-      else
-      {
-         i = 1;
-         for (n = (macaco_t*)macacos; n->next != NULL; n = n->next)
-            i++;
+   if (macacos == NULL)
+      macacos = m;
+   else
+   {
+      i = 1;
+      for (n = (macaco_t*)macacos; n->next != NULL; n = n->next)
+         i++;
 
-         n->next = m;
-      }
+      n->next = m;
+   }
 
-      m->id = i;
-      color++;
-      color = (color%7)+1;
-      m->color = color;
-   )
+   m->id = i;
+   color++;
+   color = (color%7)+1;
+   m->color = color;
    
    return m;
 }
@@ -349,19 +347,16 @@ pos_t* aloca_pos(pos_t** pos, int ix, int iy, int fx)
 
    diff = fx - ix + 1;
    
-   LOCK
-   (
-      p = *pos;
-      
-      for (x = 0, y = 0; p != NULL && p->x == ix + x && p->y == iy + y; x = (x + 1) % diff)
-      {
-         p = p->next;
-         if (x == diff - 1)
-            y++;
-      }
-      
-      p = ocupa_pos(ix + x, iy + y, pos);
-   )
+   p = *pos;
+   
+   for (x = 0, y = 0; p != NULL && p->x == ix + x && p->y == iy + y; x = (x + 1) % diff)
+   {
+      p = p->next;
+      if (x == diff - 1)
+         y++;
+   }
+   
+   p = ocupa_pos(ix + x, iy + y, pos);
 
    return p;
 }
@@ -410,13 +405,14 @@ void desenho_muda_corda(int novo_sentido, int id_macaco)
    else
       v = livre;
 
+   COR
+   (
+      GREEN,
+      mvprintw(mapa.placa_y, mapa.placa_x, v);
+   )
+   
    LOCK
    (
-      COR
-      (
-         GREEN,
-         mvprintw(mapa.placa_y, mapa.placa_x, v);
-      )
       refresh();
       D_SLEEP;
    )
@@ -429,30 +425,27 @@ void desenho_entra_corda(int id_macaco)
    pos_t** p;
    pos_t* pc;
 
-   LOCK
-   (
-      m = get_macaco(id_macaco);
+   m = get_macaco(id_macaco);
 
-      if (m->estado == ESP_CORDA_DIR)
-      {
-         p = (pos_t**)&tenta_corda_dir;
-         m->estado = CORDA_DIR;
-      }
-      else
-      {
-         p = (pos_t**)&tenta_corda_esq;
-         m->estado = CORDA_ESQ;
-      }
-     
-      // libera pos de tentativa corda
-      libera_pos(m->x, m->y, p);
+   if (m->estado == ESP_CORDA_DIR)
+   {
+      p = (pos_t**)&tenta_corda_dir;
+      m->estado = CORDA_DIR;
+   }
+   else
+   {
+      p = (pos_t**)&tenta_corda_esq;
+      m->estado = CORDA_ESQ;
+   }
+  
+   // libera pos de tentativa corda
+   libera_pos(m->x, m->y, p);
 
-      // pega posicao na corda
-      pc = aloca_pos((pos_t**)&corda, mapa.cor_ix, mapa.cor_iy, mapa.cor_fx);
-      
-      // move macaco
-      move_macaco(m, pc->x, pc->y);
-   )
+   // pega posicao na corda
+   pc = aloca_pos((pos_t**)&corda, mapa.cor_ix, mapa.cor_iy, mapa.cor_fx);
+   
+   // move macaco
+   move_macaco(m, pc->x, pc->y);
 }
 
 void desenho_tenta_corda(int id_macaco)
@@ -462,38 +455,35 @@ void desenho_tenta_corda(int id_macaco)
    pos_t* pc;
    int ix, iy, fx;
 
-   LOCK
-   (
-      m = get_macaco(id_macaco);
+   m = get_macaco(id_macaco);
 
-      if (m->estado == DIREITA)
-      {
-         p = (pos_t**)&direita;
-         pe = (pos_t**)&tenta_corda_dir;
-         m->estado = ESP_CORDA_DIR;
-         ix = mapa.esp_cor_dir_ix;
-         iy = mapa.esp_cor_dir_iy;
-         fx = mapa.esp_cor_dir_fx;
-      }
-      else
-      {
-         p = (pos_t**)&esquerda;
-         pe = (pos_t**)&tenta_corda_esq;
-         m->estado = ESP_CORDA_ESQ;
-         ix = mapa.esp_cor_esq_ix;
-         iy = mapa.esp_cor_esq_iy;
-         fx = mapa.esp_cor_esq_fx;
-      }
-     
-      // libera pos anterior
-      libera_pos(m->x, m->y, p);
+   if (m->estado == DIREITA)
+   {
+      p = (pos_t**)&direita;
+      pe = (pos_t**)&tenta_corda_dir;
+      m->estado = ESP_CORDA_DIR;
+      ix = mapa.esp_cor_dir_ix;
+      iy = mapa.esp_cor_dir_iy;
+      fx = mapa.esp_cor_dir_fx;
+   }
+   else
+   {
+      p = (pos_t**)&esquerda;
+      pe = (pos_t**)&tenta_corda_esq;
+      m->estado = ESP_CORDA_ESQ;
+      ix = mapa.esp_cor_esq_ix;
+      iy = mapa.esp_cor_esq_iy;
+      fx = mapa.esp_cor_esq_fx;
+   }
+  
+   // libera pos anterior
+   libera_pos(m->x, m->y, p);
 
-      // pega posicao na espera da corda
-      pc = aloca_pos(pe, ix, iy, fx);
-      
-      // move macaco
-      move_macaco(m, pc->x, pc->y);
-   )
+   // pega posicao na espera da corda
+   pc = aloca_pos(pe, ix, iy, fx);
+   
+   // move macaco
+   move_macaco(m, pc->x, pc->y);
 }
 
 void desenho_desiste_corda(int id_macaco)
@@ -503,38 +493,35 @@ void desenho_desiste_corda(int id_macaco)
    pos_t* pc;
    int ix, iy, fx;
 
-   LOCK
-   (
-      m = get_macaco(id_macaco);
+   m = get_macaco(id_macaco);
 
-      if (m->estado == ESP_CORDA_DIR)
-      {
-         pe = (pos_t**)&direita;
-         p = (pos_t**)&tenta_corda_dir;
-         m->estado = DIREITA;
-         ix = mapa.dir_ix;
-         iy = mapa.dir_iy;
-         fx = mapa.dir_fx;
-      }
-      else
-      {
-         pe = (pos_t**)&esquerda;
-         p = (pos_t**)&tenta_corda_esq;
-         m->estado = ESQUERDA;
-         ix = mapa.esq_ix;
-         iy = mapa.esq_iy;
-         fx = mapa.esq_fx;
-      }
-     
-      // libera pos anterior
-      libera_pos(m->x, m->y, p);
+   if (m->estado == ESP_CORDA_DIR)
+   {
+      pe = (pos_t**)&direita;
+      p = (pos_t**)&tenta_corda_dir;
+      m->estado = DIREITA;
+      ix = mapa.dir_ix;
+      iy = mapa.dir_iy;
+      fx = mapa.dir_fx;
+   }
+   else
+   {
+      pe = (pos_t**)&esquerda;
+      p = (pos_t**)&tenta_corda_esq;
+      m->estado = ESQUERDA;
+      ix = mapa.esq_ix;
+      iy = mapa.esq_iy;
+      fx = mapa.esq_fx;
+   }
+  
+   // libera pos anterior
+   libera_pos(m->x, m->y, p);
 
-      // pega posicao na espera
-      pc = aloca_pos(pe, ix, iy, fx);
-      
-      // move macaco
-      move_macaco(m, pc->x, pc->y);
-   )
+   // pega posicao na espera
+   pc = aloca_pos(pe, ix, iy, fx);
+   
+   // move macaco
+   move_macaco(m, pc->x, pc->y);
 }
 
 void desenho_sai_corda(int id_macaco)
@@ -544,36 +531,33 @@ void desenho_sai_corda(int id_macaco)
    pos_t* pc;
    int ix, iy, fx;
 
-   LOCK
-   (
-      m = get_macaco(id_macaco);
+   m = get_macaco(id_macaco);
 
-      p = (pos_t**)&corda;
+   p = (pos_t**)&corda;
 
-      if (m->estado == CORDA_DIR)
-      {
-         pe = (pos_t**)&saiu_corda_esq;
-         m->estado = SAIU_DIR;
-         ix = mapa.saiu_esq_ix;
-         iy = mapa.saiu_esq_iy;
-         fx = mapa.saiu_esq_fx;
-      }
-      else
-      {
-         pe = (pos_t**)&saiu_corda_dir;
-         m->estado = SAIU_ESQ;
-         ix = mapa.saiu_dir_ix;
-         iy = mapa.saiu_dir_iy;
-         fx = mapa.saiu_dir_fx;
-      }
-     
-      // libera pos anterior
-      libera_pos(m->x, m->y, p);
+   if (m->estado == CORDA_DIR)
+   {
+      pe = (pos_t**)&saiu_corda_esq;
+      m->estado = SAIU_DIR;
+      ix = mapa.saiu_esq_ix;
+      iy = mapa.saiu_esq_iy;
+      fx = mapa.saiu_esq_fx;
+   }
+   else
+   {
+      pe = (pos_t**)&saiu_corda_dir;
+      m->estado = SAIU_ESQ;
+      ix = mapa.saiu_dir_ix;
+      iy = mapa.saiu_dir_iy;
+      fx = mapa.saiu_dir_fx;
+   }
+  
+   // libera pos anterior
+   libera_pos(m->x, m->y, p);
 
-      // pega posicao na saida
-      pc = aloca_pos(pe, ix, iy, fx);
-      
-      // move macaco
-      move_macaco(m, pc->x, pc->y);
-   )
+   // pega posicao na saida
+   pc = aloca_pos(pe, ix, iy, fx);
+   
+   // move macaco
+   move_macaco(m, pc->x, pc->y);
 }
