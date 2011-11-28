@@ -7,14 +7,14 @@
 
 //#define DEBUG
 
-#define THREAD_NUM 100
+#define THREAD_NUM 500
 #define CHANCE_DIR 0.5
 #define MAX_CORDA 5
-#define MAX_DIFF 10
-#define MIN_CR_TIME 500
-#define MAX_CR_TIME 1500
+#define MAX_DIFF 13
+#define MIN_CR_TIME 1000
+#define MAX_CR_TIME 4000
 #define MIN_CREATION_TIME 100
-#define MAX_CREATION_TIME 800
+#define MAX_CREATION_TIME 1200
 
 #define DIR 0
 #define ESQ 1
@@ -283,7 +283,6 @@ void do_work(int s)
    sem_post(&corda);
    
    usleep(((random() % (MAX_CR_TIME - MIN_CR_TIME)) + MIN_CR_TIME)*1000);
-
 }
 
 void* babuino(void* info)
@@ -298,19 +297,18 @@ void* babuino(void* info)
 
    s = (bint)((int)in.sentido);
 
-
-
    if (s == ESQ)
       sem = &esquerda;
    else
       sem = &direita;
 
-   sem_wait(&corda);
    #ifndef DEBUG
       id = desenho_novo_macaco(s);
    #else
       id = (int)in.id;
    #endif  
+
+   sem_wait(&corda);
    
    if (s == DIR)
       esperando_dir++;
