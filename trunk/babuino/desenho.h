@@ -90,4 +90,7 @@ void desenho_tenta_corda(int id_macaco);
 /* informa que macaco desistiu da corda */
 void desenho_desiste_corda(int id_macaco);
 
+/* informa o balanco*/
+void desenho_balanco(int balanco);
+
 #endif

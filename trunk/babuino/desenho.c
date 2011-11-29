@@ -8,6 +8,11 @@
 
 #define PGREATER(A, B) (A->y > B->y || (A->y == B->y && A->x > B->x))
 
+#define DISTANCIA_TOPO  13
+#define ALTURA_PLACA    10
+
+#define PONTE "--------------------------------------------------------"
+
 static mapa_t mapa;
 static pthread_mutex_t lock;
 
@@ -104,18 +109,16 @@ void desenha_mapa()
    int col, row;
    int i;
    mapa_t* m;
-   int distancia_topo, altura_placa;
    char* ponte;
 
    m = &mapa;
-   distancia_topo = 20;
-   altura_placa = 10;
-   ponte = "--------------------------------------------------------";
+
+   ponte = PONTE;
 
    getmaxyx(stdscr,row,col);
 
    m->ponte_x = ( col - strlen(ponte) ) /2;
-   m->ponte_y = distancia_topo;
+   m->ponte_y = DISTANCIA_TOPO;
    m->ponte_len = strlen(ponte);
    COR
    (
@@ -176,7 +179,7 @@ void desenha_mapa()
 
    // placa
    m->placa_x = m->ponte_x + m->ponte_len/2;
-   for (i = 0; i < altura_placa - 2; i++)
+   for (i = 0; i < ALTURA_PLACA - 2; i++)
    {
       COR
       (
@@ -188,13 +191,15 @@ void desenha_mapa()
    COR
    (
       WHITE,
-      mvprintw(altura_placa - 2, m->placa_x - 3, "###########");
-      mvprintw(altura_placa - 1, m->placa_x - 3, "#  LIVRE  #");
-      mvprintw(altura_placa - 0, m->placa_x - 3, "###########");
+      mvprintw(ALTURA_PLACA - 4, m->placa_x - 3, "###########");
+      mvprintw(ALTURA_PLACA - 3, m->placa_x - 3, "#Bal:+0000#");
+      mvprintw(ALTURA_PLACA - 2, m->placa_x - 3, "#---------#");
+      mvprintw(ALTURA_PLACA - 1, m->placa_x - 3, "#  LIVRE  #");
+      mvprintw(ALTURA_PLACA - 0, m->placa_x - 3, "###########");
    )
    // posicao do texto da placa
    m->placa_x = m->placa_x;
-   m->placa_y = altura_placa - 1;
+   m->placa_y = ALTURA_PLACA - 1;
 
    // macaco grande
    desenha_macaco_grde(5, 6);
@@ -593,5 +598,19 @@ void desenho_sai_corda(int id_macaco)
       
       // move macaco
       move_macaco(m, pc->x, pc->y);
+   )
+}
+
+void desenho_balanco(int balanco)
+{
+   mapa_t* m;
+   m = &mapa;
+   
+   LOCK
+   (
+      if(balanco > 0)
+         mvprintw(ALTURA_PLACA - 3, m->placa_x - 3, "#Bal:+%04d#", balanco);
+      else
+         mvprintw(ALTURA_PLACA - 3, m->placa_x - 3, "#Bal:-%04d#", balanco*(-1));
    )
 }

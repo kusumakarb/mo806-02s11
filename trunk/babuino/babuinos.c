@@ -168,6 +168,7 @@ int entra_corda(int s, int id)
       }
    }
 
+   desenho_balanco(balanco);
    sem_post(&corda);
 
 #ifndef DEBUG
@@ -251,7 +252,7 @@ void sai_corda(int s, int id)
    {
 
       if ( (s == DIR && esperando_esq > 0 && balanco > MAX_DIFF) ||
-           (s == ESQ && esperando_dir > 0 && balanco > -MAX_DIFF))
+           (s == ESQ && esperando_dir > 0 && balanco < -MAX_DIFF))
       {
          // well, we should let the other side play
       }
